@@ -7,7 +7,8 @@ if [ ! -d "results" ]; then
 fi
 
 echo "======================================================================="
-echo "                    Multiplication Results                            "
+echo "                    Multiplication Results                             "
+echo "                          by Tara Mazaya Lababan - 2406514564          "
 echo "======================================================================="
 echo "Matrix Size | Processors | Total Time | Computation | Communication | Parallel  "
 echo "            |            | (s)        | Time (s)    | Time (s)      | Eff. (%)  "

@@ -120,6 +120,7 @@ int main(int argc, char **argv) {
         double total_comm_overhead = total_comm_time + max_worker_comm_time;
 
         printf("Matrix Size (N) = %d, Processors = %d\n", N, numworkers + 1);
+        printf("Tara Mazaya Lababan - 2406514564\n");
         printf("\tTotal Time: %.6f s\n", total_time);
         printf("\tComputation Time (Max): %.6f s\n", max_comp_time);
         printf("\tComputation Time (Min): %.6f s\n", min_comp_time);

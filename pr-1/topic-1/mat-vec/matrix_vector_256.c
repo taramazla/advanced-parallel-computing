@@ -109,6 +109,7 @@ int main(int argc, char **argv) {
 
         // Output timing results
         printf("Matrix Size (N) = %d, Processor = %d\n", N, numworkers + 1);
+        printf("Tara Mazaya Lababan - 2406514564\n");
         printf("Total Time: %.6f s\n", total_time);
         printf("Computation Time (Max): %.6f s\n", max_comp_time);
         printf("Computation Time (Min): %.6f s\n", min_comp_time);

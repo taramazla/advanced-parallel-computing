@@ -26,14 +26,14 @@ for size in 256 512 1024 2048 4096
 do
     for procs in 1 2 4 8 16 32
     do
-        # Calculate required nodes (8 processors per node)
-        nodes=$(( (procs + 7) / 8 ))
+        # Calculate required nodes (32 processors per node)
+        nodes=$(( (procs + 31) / 32 ))
 
         echo "Running with matrix size ${size} on ${procs} processors (${nodes} nodes)"
 
         # Create a job script for this combination
         cat > job_${size}_${procs}.sh << EOF
-mpirun --hostfile hostfile -np ${procs} \$HOME/kelompok2/topik1/perkalian_matrix_vector/matrix_vector_${size}.o
+mpirun --hostfile hostfile -np ${procs} ./matrix_vector_${size}.o
 EOF
 
         # Submit the job
