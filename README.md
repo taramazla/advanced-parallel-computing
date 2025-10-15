@@ -17,3 +17,12 @@ nano matrix_matrix_256.c
 nano run-mat-mat.sh
 
 nano results.sh
+
+
+Matrix-Vector multiplication (row-wise distribution)
+Matrix-Matrix multiplication (standard row distribution)
+Matrix-Matrix multiplication dengan menggunakan Cannon's algorithm (2D block distribution)
+
+
+user05@store-01:~/coba3$ mpicc deadlock.c -o deadlock.o
+user05@store-01:~/coba3$ mpirun -np 4 ./deadlock.o
