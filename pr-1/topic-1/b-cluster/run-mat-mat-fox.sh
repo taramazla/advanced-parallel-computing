@@ -1,0 +1,55 @@
+#!/bin/bash
+
+# Compile all matrix sizes
+for size in 256 512 1024 2048 4096
+do
+    echo "Compiling matrix_matrix_fox_${size}.c"
+    # First copy the base code
+    cp matrix_matrix_fox_256.c matrix_matrix_fox_${size}.c
+
+    # Replace the matrix size in the copied file
+    sed -i.bak "s/#define N 256/#define N ${size}/" matrix_matrix_fox_${size}.c
+    rm -f matrix_matrix_fox_${size}.c.bak
+
+    # Compile with MPI
+    mpicc -o matrix_matrix_fox_${size}.o matrix_matrix_fox_${size}.c
+
+    echo "Compiled matrix_matrix_fox_${size}.o"
+    echo "-----------------------------------"
+done
+
+# Create output directory for results
+mkdir -p results
+
+# Run all combinations
+for size in 256 512 1024 2048 4096
+do
+    for procs in 1 2 4 8 16 32
+    do
+        # Calculate required nodes (8 processors per node)
+        nodes=$(( (procs + 7) / 8 ))
+
+        echo "Running with matrix size ${size} on ${procs} processors (${nodes} nodes)"
+
+        # Create a job script for this combination
+        cat > job_${size}_${procs}.sh << EOF
+#!/bin/bash
+#SBATCH -o results/run-N${size}-P${procs}.out
+#SBATCH -p batch
+#SBATCH -N ${nodes}
+
+mpirun --mca btl_tcp_if_exclude docker0,lo -np ${procs} ./matrix_matrix_fox_${size}.o
+EOF
+
+        # Submit the job
+        echo "Submitting job: sbatch job_${size}_${procs}.sh"
+        sbatch job_${size}_${procs}.sh
+
+        echo "-----------------------------------"
+
+        # Small delay between job submissions to prevent overloading the scheduler
+        sleep 1
+    done
+done
+
+echo "All jobs submitted. Results will be in the 'results' directory."
