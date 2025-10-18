@@ -12,7 +12,7 @@ do
     rm -f matrix_matrix_fox_${size}.c.bak
 
     # Compile with MPI
-    mpicc -o matrix_matrix_fox_${size}.o matrix_matrix_fox_${size}.c
+    mpicc -O3 -std=c11 -DN="${size}" -o matrix_matrix_fox_${size}.o matrix_matrix_fox_${size}.c -lm
 
     echo "Compiled matrix_matrix_fox_${size}.o"
     echo "-----------------------------------"
