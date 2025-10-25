@@ -15,7 +15,8 @@ double a[N][N], b[N][N], c[N][N];
 void transpose(int size, double matrix[size][size]);
 
 int main(int argc, char **argv) {
-    int numtasks, taskid, numworkers, source, dest, rows, offset, i, j, k;
+    int numtasks, taskid, source, dest, rows, offset, i, j, k;
+    int my_offset, my_rows;
 
     double start, stop;
     double comm_start, comm_end;
@@ -28,9 +29,7 @@ int main(int argc, char **argv) {
     MPI_Comm_rank(MPI_COMM_WORLD, &taskid);
     MPI_Comm_size(MPI_COMM_WORLD, &numtasks);
 
-    numworkers = numtasks - 1;
-
-    /*---------------------------- MASTER ----------------------------*/
+    /*---------------------------- MASTER INITIALIZATION (taskid 0 only) ----------------------------*/
     if (taskid == 0) {
         // Initialize matrix A and B
         for (i = 0; i < N; i++) {
@@ -43,35 +42,98 @@ int main(int argc, char **argv) {
         // Transpose matrix B for efficient column access during multiplication
         transpose(N, b);
 
-        // Calculate rows per worker
-        rows = (numworkers > 0) ? N / numworkers : N;
+        // Calculate rows per worker (including master as worker)
+        rows = N / numtasks;
+        int remaining_rows = N % numtasks;
 
         // Synchronize all processes before starting timing
         MPI_Barrier(MPI_COMM_WORLD);
         start = MPI_Wtime();
 
-        offset = 0;
+        // Master's own work portion (first worker)
+        my_rows = rows + (0 < remaining_rows ? 1 : 0);
+        my_offset = 0;
+        offset = my_rows;  // Start offset for other workers
 
-        // Measure time for sending data to workers
+        // Measure time for sending data to other workers
         comm_start = MPI_Wtime();
 
-        // Send data to worker processes
-        for (dest = 1; dest <= numworkers; dest++) {
+        // Send data to other worker processes
+        for (dest = 1; dest < numtasks; dest++) {
+            int worker_rows = rows + (dest < remaining_rows ? 1 : 0);
             MPI_Send(&offset, 1, MPI_INT, dest, 1, MPI_COMM_WORLD);
-            MPI_Send(&rows, 1, MPI_INT, dest, 1, MPI_COMM_WORLD);
-            MPI_Send(&a[offset][0], rows * N, MPI_DOUBLE, dest, 1, MPI_COMM_WORLD);
+            MPI_Send(&worker_rows, 1, MPI_INT, dest, 1, MPI_COMM_WORLD);
+            MPI_Send(&a[offset][0], worker_rows * N, MPI_DOUBLE, dest, 1, MPI_COMM_WORLD);
             MPI_Send(&b, N * N, MPI_DOUBLE, dest, 1, MPI_COMM_WORLD);
-            offset += rows;
+            offset += worker_rows;
         }
 
         comm_end = MPI_Wtime();
         send_comm_time = comm_end - comm_start;
+        total_comm_time += send_comm_time;
+    }
 
-        // Measure time for receiving results from workers
+    /*---------------------------- ALL PROCESSES AS WORKERS ----------------------------*/
+    
+    // Non-master processes receive their work
+    if (taskid > 0) {
+        // Synchronize before starting timing
+        MPI_Barrier(MPI_COMM_WORLD);
+
+        // Measure communication time for receiving
         comm_start = MPI_Wtime();
 
-        // Receive results from worker processes
-        for (i = 1; i <= numworkers; i++) {
+        // Receive data from master
+        MPI_Recv(&my_offset, 1, MPI_INT, 0, 1, MPI_COMM_WORLD, &status);
+        MPI_Recv(&my_rows, 1, MPI_INT, 0, 1, MPI_COMM_WORLD, &status);
+        MPI_Recv(&a, my_rows * N, MPI_DOUBLE, 0, 1, MPI_COMM_WORLD, &status);
+        MPI_Recv(&b, N * N, MPI_DOUBLE, 0, 1, MPI_COMM_WORLD, &status);
+
+        comm_end = MPI_Wtime();
+        double recv_time = comm_end - comm_start;
+        worker_comm_time += recv_time;
+    }
+
+    // All processes perform computation
+    comp_start = MPI_Wtime();
+
+    // Perform matrix multiplication
+    for (i = 0; i < my_rows; i++) {
+        for (j = 0; j < N; j++) {
+            c[i][j] = 0;
+            for (k = 0; k < N; k++) {
+                c[i][j] += a[i][k] * b[j][k];
+            }
+        }
+    }
+
+    comp_end = MPI_Wtime();
+    comp_time = comp_end - comp_start;
+
+    // Non-master processes send results back
+    if (taskid > 0) {
+        // Measure communication time for sending
+        comm_start = MPI_Wtime();
+
+        // Send results back to master
+        MPI_Send(&my_offset, 1, MPI_INT, 0, 2, MPI_COMM_WORLD);
+        MPI_Send(&my_rows, 1, MPI_INT, 0, 2, MPI_COMM_WORLD);
+        MPI_Send(&c, my_rows * N, MPI_DOUBLE, 0, 2, MPI_COMM_WORLD);
+
+        comm_end = MPI_Wtime();
+        double send_time = comm_end - comm_start;
+        worker_comm_time += send_time;
+    }
+
+    /*---------------------------- MASTER COLLECTION (taskid 0 only) ----------------------------*/
+    if (taskid == 0) {
+        // Master already has its own results in c[0] to c[my_rows-1]
+        
+        // Measure time for receiving results from other workers
+        comm_start = MPI_Wtime();
+
+        // Receive results from other worker processes
+        for (i = 1; i < numtasks; i++) {
             source = i;
             MPI_Recv(&offset, 1, MPI_INT, source, 2, MPI_COMM_WORLD, &status);
             MPI_Recv(&rows, 1, MPI_INT, source, 2, MPI_COMM_WORLD, &status);
@@ -80,34 +142,19 @@ int main(int argc, char **argv) {
 
         comm_end = MPI_Wtime();
         recv_comm_time = comm_end - comm_start;
+        total_comm_time += recv_comm_time;
+    }
 
-        // Calculate total communication time
-        total_comm_time = send_comm_time + recv_comm_time;
+    // Collect computation times from all processes
+    MPI_Reduce(&comp_time, &max_comp_time, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&comp_time, &min_comp_time, 1, MPI_DOUBLE, MPI_MIN, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&comp_time, &sum_comp_time, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+    avg_comp_time = sum_comp_time / numtasks;
 
-        // If no workers, compute the multiplication locally
-        if (numworkers == 0) {
-            comp_start = MPI_Wtime();
-            for (i = 0; i < rows; i++) {
-                for (j = 0; j < N; j++) {
-                    c[i][j] = 0;
-                    for (k = 0; k < N; k++) {
-                        c[i][j] += a[i][k] * b[j][k];
-                    }
-                }
-            }
-            comp_end = MPI_Wtime();
-            comp_time = comp_end - comp_start;
-        }
+    // Collect worker communication times
+    MPI_Reduce(&worker_comm_time, &max_worker_comm_time, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
 
-        // Collect computation times from all processes
-        MPI_Reduce(&comp_time, &max_comp_time, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
-        MPI_Reduce(&comp_time, &min_comp_time, 1, MPI_DOUBLE, MPI_MIN, 0, MPI_COMM_WORLD);
-        MPI_Reduce(&comp_time, &sum_comp_time, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
-        avg_comp_time = sum_comp_time / numtasks;
-
-        // Collect worker communication times
-        MPI_Reduce(&worker_comm_time, &max_worker_comm_time, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
-
+    if (taskid == 0) {
         // Convert matrix B back to its original form
         transpose(N, b);
 
@@ -119,7 +166,7 @@ int main(int argc, char **argv) {
         double total_time = stop - start;
         double total_comm_overhead = total_comm_time + max_worker_comm_time;
 
-        printf("Matrix Size (N) = %d, Processors = %d\n", N, numworkers + 1);
+        printf("Matrix Size (N) = %d, Processors = %d\n", N, numtasks);
         printf("Tara Mazaya Lababan - 2406514564\n");
         printf("\tTotal Time: %.6f s\n", total_time);
         printf("\tComputation Time (Max): %.6f s\n", max_comp_time);
@@ -135,62 +182,15 @@ int main(int argc, char **argv) {
         printf("\tCommunication Overhead: %.6f s (%.2f%%)\n\n",
                total_comm_overhead,
                (total_time > 0) ? (total_comm_overhead / total_time * 100.0) : 0.0);
-    }
 
-    /*---------------------------- WORKER ----------------------------*/
-    if (taskid > 0) {
-        source = 0;
-
-        // Synchronize before starting timing
-        MPI_Barrier(MPI_COMM_WORLD);
-
-        // Measure communication time for receiving
-        comm_start = MPI_Wtime();
-
-        // Receive data from master
-        MPI_Recv(&offset, 1, MPI_INT, source, 1, MPI_COMM_WORLD, &status);
-        MPI_Recv(&rows, 1, MPI_INT, source, 1, MPI_COMM_WORLD, &status);
-        MPI_Recv(&a, rows * N, MPI_DOUBLE, source, 1, MPI_COMM_WORLD, &status);
-        MPI_Recv(&b, N * N, MPI_DOUBLE, source, 1, MPI_COMM_WORLD, &status);
-
-        comm_end = MPI_Wtime();
-        double recv_time = comm_end - comm_start;
-
-        // Measure computation time
-        comp_start = MPI_Wtime();
-
-        // Perform matrix multiplication
-        for (i = 0; i < rows; i++) {
+        printf("Result Matrix C:\n");
+        for (i = 0; i < N; i++) {
             for (j = 0; j < N; j++) {
-                c[i][j] = 0;
-                for (k = 0; k < N; k++) {
-                    c[i][j] += a[i][k] * b[j][k];
-                }
+                printf("%.2f ", c[i][j]);
             }
+            printf("\n");
         }
-
-        comp_end = MPI_Wtime();
-        comp_time = comp_end - comp_start;
-
-        // Measure communication time for sending
-        comm_start = MPI_Wtime();
-
-        // Send results back to master
-        MPI_Send(&offset, 1, MPI_INT, 0, 2, MPI_COMM_WORLD);
-        MPI_Send(&rows, 1, MPI_INT, 0, 2, MPI_COMM_WORLD);
-        MPI_Send(&c, rows * N, MPI_DOUBLE, 0, 2, MPI_COMM_WORLD);
-
-        comm_end = MPI_Wtime();
-        double send_time = comm_end - comm_start;
-
-        worker_comm_time = recv_time + send_time;
-
-        // Participate in reduction
-        MPI_Reduce(&comp_time, &max_comp_time, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
-        MPI_Reduce(&comp_time, &min_comp_time, 1, MPI_DOUBLE, MPI_MIN, 0, MPI_COMM_WORLD);
-        MPI_Reduce(&comp_time, &sum_comp_time, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
-        MPI_Reduce(&worker_comm_time, &max_worker_comm_time, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
-
+    } else {
         // Synchronize before ending timing
         MPI_Barrier(MPI_COMM_WORLD);
     }
