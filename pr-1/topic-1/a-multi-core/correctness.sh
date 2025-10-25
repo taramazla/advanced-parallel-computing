@@ -20,8 +20,8 @@ declare -A test_status
 # Function to extract matrix values from output file
 extract_matrix() {
     local file=$1
-    # Extract only the matrix values after "Result Matrix C:" line
-    awk '/Result Matrix C:/{flag=1; next} flag && /^[0-9]/{print}' "$file" > temp_matrix.txt
+    # Extract matrix values in the format "c[index] = value" after "Result Matrix C:" line
+    awk '/Result Matrix C:/{flag=1; next} flag && /c\[[0-9]+\] = /{gsub(/c\[[0-9]+\] = /, ""); print}' "$file" > temp_matrix.txt
 }
 
 # Function to compare two matrix files
@@ -48,7 +48,7 @@ do
     echo "-----------------------------------"
     
     # Check if reference file exists (1 process)
-    reference_file="results/run-N${size}-P1.out"
+    reference_file="./results/run-N${size}-P1.out"
     if [ ! -f "$reference_file" ]; then
         echo "ERROR: Reference file not found: $reference_file"
         for procs in 2 4 8 16 32; do
@@ -75,7 +75,7 @@ do
     # Test with different number of processes
     for procs in 2 4 8 16 32
     do
-        test_file="results/run-N${size}-P${procs}.out"
+        test_file="./results/run-N${size}-P${procs}.out"
         echo -n "Testing with ${procs} processes... "
         
         if [ ! -f "$test_file" ]; then
