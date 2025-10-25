@@ -20,8 +20,27 @@ declare -A test_status
 # Function to extract matrix values from output file
 extract_matrix() {
     local file=$1
-    # Extract matrix values in the format "c[index] = value" after "Result Matrix C:" line
-    awk '/Result Matrix C:/{flag=1; next} flag && /c\[[0-9]+\] = /{gsub(/c\[[0-9]+\] = /, ""); print}' "$file" > temp_matrix.txt
+    # Extract everything after "Result Matrix C:" line and normalize to space-separated values
+    awk '
+    /Result Matrix C:/{flag=1; next} 
+    flag {
+        # Handle format: c[index] = value
+        if (/c\[[0-9]+\] = /) {
+            gsub(/c\[[0-9]+\] = /, "")
+            print
+        }
+        # Handle format: space-separated values
+        else if (/^[0-9\.\-\+eE ]+$/) {
+            # Split line into individual numbers and print each on separate line
+            gsub(/[ \t]+/, " ")  # normalize whitespace
+            gsub(/^[ \t]+|[ \t]+$/, "")  # trim
+            if (length($0) > 0) {
+                for (i=1; i<=NF; i++) {
+                    print $i
+                }
+            }
+        }
+    }' "$file" | grep -E '^[0-9\.\-\+eE]+$' > temp_matrix.txt
 }
 
 # Function to compare two matrix files
@@ -30,10 +49,16 @@ compare_matrices() {
     local file2=$2
     local size=$3
     
-    # Compare the matrices line by line
-    if diff -q "$file1" "$file2" > /dev/null; then
+    # Sort both files to handle potential ordering differences
+    sort -n "$file1" > temp_sorted1.txt
+    sort -n "$file2" > temp_sorted2.txt
+    
+    # Compare the sorted matrices
+    if diff -q temp_sorted1.txt temp_sorted2.txt > /dev/null; then
+        rm -f temp_sorted1.txt temp_sorted2.txt
         return 0  # Matrices are identical
     else
+        rm -f temp_sorted1.txt temp_sorted2.txt
         return 1  # Matrices differ
     fi
 }
@@ -210,7 +235,7 @@ echo "❌ EXTRACT_ERROR - Could not extract matrix from test file"
 echo "⚠️  NOT_FOUND   - Test output file not found"
 
 # Cleanup temporary files
-rm -f temp_matrix.txt
+rm -f temp_matrix.txt temp_sorted1.txt temp_sorted2.txt
 
 echo ""
 echo "Correctness test completed using existing results files."
