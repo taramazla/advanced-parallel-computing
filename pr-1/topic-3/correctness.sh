@@ -175,7 +175,7 @@ done
 
 # Display results table
 echo "==============================================================="
-echo "                    CORRECTNESS TEST RESULTS                  ".
+echo "                    CORRECTNESS TEST RESULTS                  "
 echo "==============================================================="
 echo "Matrix Size | Processors |   Status   |      Result"
 echo "------------|------------|------------|------------------"
