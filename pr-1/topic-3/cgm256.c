@@ -396,8 +396,23 @@ int main(int argc, char **argv) {
              final_cg_residual_norm, TOLERANCE);
     }
 
+    // Print Solution Vector (first 10 and last 10 elements)
+    printf("\n--- Solution Vector x ---\n");
+    printf("First 10 elements of solution vector x:\n");
+    for (int i = 0; i < 10 && i < N; i++) {
+      printf("x[%3d] = %12.6f\n", i, x_global[i]);
+    }
+    if (N > 20) {
+      printf("...\n");
+      printf("Last 10 elements of solution vector x:\n");
+      for (int i = N - 10; i < N; i++) {
+        printf("x[%3d] = %12.6f\n", i, x_global[i]);
+      }
+    }
+    printf("-------------------------\n");
+
     // Print Verification Result
-    printf("--- Verification ---\n");
+    printf("\n--- Verification ---\n");
     printf("Computed ||b - Ax|| = %e\n", verification_residual_norm);
     // Allow slightly larger tolerance for verification due to potential FP
     // differences
