@@ -73,14 +73,28 @@ int main() {
 
     // Execution time result
     if (rank == 0) {
-        // Calculate average communication time per process
+        double total = end_time - start_time;
         double avg_comm_time = global_comm_total / size;
 
         printf("Matrix Size (N) = %d, Processors = %d\n", N, size);
-        printf("Total Time: %.6f\n", end_time - start_time);
-        printf("Communication Time: %.6f\n", avg_comm_time);
-        printf("Execution Time: %.6f\n", (end_time - start_time) - avg_comm_time);
+        printf("Total Time: %.6f\n", total);
+        printf("Communication Overhead: %.6f\n", avg_comm_time);
+        printf("Computation Time (Max): %.6f\n", total - avg_comm_time);
+
+        double computation_time = total - avg_comm_time;
+        double pe = (total > 0) ? (computation_time / total) * 100.0 : 0.0;
+        printf("Parallel Efficiency: %.2f%%\n", pe);
+
+        printf("Result Matrix C:\n");
+        for (int i = 0; i < N; i++) {
+            for (int j = 0; j < N; j++) {
+                printf("%d ", C[i * N + j]);
+            }
+            printf("\n");
+        }
+
     }
+
 
     // Free memory
     free(B);
