@@ -179,6 +179,14 @@ int main(int argc, char **argv) {
         printf("\tCommunication Overhead: %.6f s (%.2f%%)\n\n",
                comm_overhead,
                total_time > 0.0 ? (comm_overhead / total_time * 100.0) : 0.0);
+
+        printf("Result Matrix C:\n");
+        for (int i = 0; i < N; i++) {
+            for (int j = 0; j < N; j++) {
+                printf("%.1f ", C[i*N + j]);
+            }
+            printf("\n");
+        }
     }
 
     // --- Cleanup ---
