@@ -1,17 +1,42 @@
+// cublas.cu - Matrix multiplication with cuBLAS
+//
+// Compile:
+//   nvcc cublas.cu -lcublas -o cublas
+// Run:
+//   ./cublas [N]
+//
+// Menghitung C = A x B, di mana A,B,C disimpan row-major di host.
+// Mapping ke cuBLAS (column-major) pakai trik transpose.
+
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/time.h>
+
+#include <cuda_runtime.h>
 #include <cublas_v2.h>
 
-// #define N 128
+void count_matmul(double *A, double *B, double *C, int size) {
+    for (int row = 0; row < size; row++) {
+        for (int col = 0; col < size; col++) {
+            double sum = 0.0;
+            for (int k = 0; k < size; ++k) {
+                sum += A[row * size + k] * B[k * size + col];
+            }
+            C[row * size + col] = sum;
+        }
+    }
+}
 
 void initializeMatrix(double *matrix, int size, double value) {
-    for (int i = 0; i < size * size; i++) {
+    int n2 = size * size;
+    for (int i = 0; i < n2; i++) {
         matrix[i] = value;
     }
 }
 
 void printMatrix(double *matrix, int size, int printSize) {
+    if (printSize > size) printSize = size;
     for (int i = 0; i < printSize; i++) {
         for (int j = 0; j < printSize; j++) {
             printf("%.1f ", matrix[i * size + j]);
@@ -20,104 +45,127 @@ void printMatrix(double *matrix, int size, int printSize) {
     }
 }
 
+double getElapsedMs(struct timeval start, struct timeval stop) {
+    return (stop.tv_sec - start.tv_sec) * 1000.0 +
+           (stop.tv_usec - start.tv_usec) / 1000.0;
+}
+
 int main(int argc, char **argv) {
-    int N = 128;
-    if(argc == 2) {
-      N = atoi(argv[1]);
-    } else {
-      printf("Custom N? pass [N] as arguments\n\n");
+    int N = 1024;
+    if (argc >= 2) {
+        N = atoi(argv[1]);
     }
-    printf("N = %d;\n", N);
 
-    double *h_A, *h_B, *h_C;  // Host
-    double *d_A, *d_B, *d_C;  // Device
+    printf("cuBLAS matmul, N = %d\n", N);
 
-    size_t matrixSize = N * N * sizeof(double);
+    size_t bytes = (size_t)N * (size_t)N * sizeof(double);
 
-    // Allocate host memory
-    h_A = (double *)malloc(matrixSize);
-    h_B = (double *)malloc(matrixSize);
-    h_C = (double *)malloc(matrixSize);
+    double *h_A = (double*)malloc(bytes);
+    double *h_B = (double*)malloc(bytes);
+    double *h_C = (double*)malloc(bytes);
+    double *h_C_ref = (double*)malloc(bytes);
 
-    // Initialize matrices
+    if (!h_A || !h_B || !h_C || !h_C_ref) {
+        fprintf(stderr, "Host malloc failed\n");
+        return 1;
+    }
+
     initializeMatrix(h_A, N, 1.0);
     initializeMatrix(h_B, N, 2.0);
-    memset(h_C, 0, matrixSize);
+    memset(h_C, 0, bytes);
+    memset(h_C_ref, 0, bytes);
 
-    // Allocate device memory
-    cudaMalloc((void **)&d_A, matrixSize);
-    cudaMalloc((void **)&d_B, matrixSize);
-    cudaMalloc((void **)&d_C, matrixSize);
+    double *d_A, *d_B, *d_C;
+    cudaMalloc((void**)&d_A, bytes);
+    cudaMalloc((void**)&d_B, bytes);
+    cudaMalloc((void**)&d_C, bytes);
 
-    // Copy matrices to device
-    cudaMemcpy(d_A, h_A, matrixSize, cudaMemcpyHostToDevice);
-    cudaMemcpy(d_B, h_B, matrixSize, cudaMemcpyHostToDevice);
+    if (!d_A || !d_B || !d_C) {
+        fprintf(stderr, "Device malloc failed\n");
+        return 1;
+    }
 
-    // cuBLAS setup
     cublasHandle_t handle;
     cublasCreate(&handle);
 
-    // Create CUDA events for timing
-    cudaEvent_t start, stop;
-    cudaEventCreate(&start);
-    cudaEventCreate(&stop);
-
-    // Start timer
     struct timeval totalStart, totalStop;
     gettimeofday(&totalStart, NULL);
 
-    // Record computation start
+    cudaMemcpy(d_A, h_A, bytes, cudaMemcpyHostToDevice);
+    cudaMemcpy(d_B, h_B, bytes, cudaMemcpyHostToDevice);
+
+    double alpha = 1.0;
+    double beta  = 0.0;
+
+    // h_A, h_B row-major (N x N).
+    // Interpreted as column-major, itu berarti A_col = A_row^T, B_col = B_row^T.
+    // Kita ingin C_row = A_row * B_row.
+    // Di column-major: C_col = B_col^T * A_col^T sehingga C_col^T = A_row * B_row.
+    //
+    // Jadi:
+    //   C_col = op(A) * op(B) = B^T * A^T
+    // di mana A_arg = d_B, B_arg = d_A, dan keduanya di-TRANSPOSE.
+
+    cudaEvent_t start, stop;
+    cudaEventCreate(&start);
+    cudaEventCreate(&stop);
     cudaEventRecord(start);
 
-    // Perform matrix multiplication using cuBLAS
-    // C = alpha * A * B + beta * C
-    const double alpha = 1.0;
-    const double beta = 0.0;
-    // cuBLAS is column-major by default
-    cublasDgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N,
-                N, N, N,
-                &alpha,
-                d_B, N,
-                d_A, N,
-                &beta,
-                d_C, N);
+    cublasStatus_t stat = cublasDgemm(handle,
+                                      CUBLAS_OP_T, CUBLAS_OP_T,
+                                      N, N, N,
+                                      &alpha,
+                                      d_B, N,   // A (col-major) = B_row^T
+                                      d_A, N,   // B (col-major) = A_row^T
+                                      &beta,
+                                      d_C, N);  // C (col-major) -> C_row
 
-    // Record computation end
     cudaEventRecord(stop);
     cudaEventSynchronize(stop);
+    float computeMs = 0.0f;
+    cudaEventElapsedTime(&computeMs, start, stop);
 
-    // Calculate computation time
-    float compTime;
-    cudaEventElapsedTime(&compTime, start, stop);
+    if (stat != CUBLAS_STATUS_SUCCESS) {
+        fprintf(stderr, "cublasDgemm failed\n");
+        return 1;
+    }
 
-    // Copy result back to host
-    cudaMemcpy(h_C, d_C, matrixSize, cudaMemcpyDeviceToHost);
+    cudaMemcpy(h_C, d_C, bytes, cudaMemcpyDeviceToHost);
 
-    // Stop total timer
     gettimeofday(&totalStop, NULL);
+    double totalMs = getElapsedMs(totalStart, totalStop);
+    double commMs = totalMs - computeMs;
 
-    // Calculate total and communication time
-    double totalTime = (totalStop.tv_sec + totalStop.tv_usec * 1e-6) -
-                       (totalStart.tv_sec + totalStart.tv_usec * 1e-6);
-    double commTime = totalTime - compTime / 1000.0;
+    printf("Total time (H2D + compute + D2H): %.3f ms\n", totalMs);
+    printf("Compute time (cuBLAS):            %.3f ms\n", computeMs);
+    printf("Estimated comm. time:             %.3f ms\n", commMs);
 
-    // Print results
-    printf("Matrix Size (N) = %d\n", N);
-    printf("\tTotal Execution Time = %.6f seconds\n", totalTime);
-    printf("\tComputation Time = %.6f seconds\n", compTime / 1000.0);
-    printf("\tCommunication Time = %.6f seconds\n", commTime);
-
-    printf("\nResult matrix (first 10x10):\n");
+    printf("\nResult C (first 10x10):\n");
     printMatrix(h_C, N, 10);
 
-    // Clean up
+    if (N <= 512) {
+        count_matmul(h_A, h_B, h_C_ref, N);
+        double max_err = 0.0;
+        for (int i = 0; i < N * N; ++i) {
+            double diff = h_C[i] - h_C_ref[i];
+            if (diff < 0) diff = -diff;
+            if (diff > max_err) max_err = diff;
+        }
+        printf("\nMax abs error vs CPU = %e\n", max_err);
+    } else {
+        printf("\nSkip CPU verification (N > 512), jalankan seq.cu jika ingin cek.\n");
+    }
+
     cublasDestroy(handle);
+
     cudaFree(d_A);
     cudaFree(d_B);
     cudaFree(d_C);
+
     free(h_A);
     free(h_B);
     free(h_C);
+    free(h_C_ref);
 
     return 0;
 }
