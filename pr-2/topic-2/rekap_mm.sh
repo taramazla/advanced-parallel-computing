@@ -13,7 +13,7 @@ fi
 
 awk '
 function fmt(x) {
-  if (x == "" || x != x) return "NaN";
+  if (x == "" || x != x || x == 0) return "NaN";
   return sprintf("%.3f", x);
 }
 function spd(ts, tp) {
@@ -23,72 +23,75 @@ function spd(ts, tp) {
 }
 
 BEGIN {
-  INF = 1e30;
+  currN = 0;
+  section = "";
+  mpi_np = 0;
 }
 
-{
-  line = $0;
+/^N = [0-9]+/ {
+  currN = $3 + 0;
+  section = "";
+  mpi_np = 0;
+  next;
+}
 
-  # Deteksi N = ...
-  if (match(line, /^N[[:space:]]*=[[:space:]]*([0-9]+)/, m)) {
-    currN = m[1] + 0;
-    section = "";
-    mpi_np = 0;
-    next;
-  }
+/^\[SEQ\]/ {
+  section = "seq";
+  next;
+}
 
-  # Section markers
-  if (line ~ /^\[SEQ\]/) {
-    section = "seq";
-    next;
-  }
+/^\[CUDA-NOPT\]/ {
+  section = "nopt";
+  next;
+}
 
-  if (line ~ /^\[CUDA-NOPT\]/) {
-    section = "nopt";
-    next;
-  }
+/^\[CUDA-OPT-SHARED\]/ {
+  section = "shared";
+  next;
+}
 
-  if (line ~ /^\[CUDA-OPT-SHARED\]/) {
-    section = "shared";
-    next;
-  }
+/^\[CUBLAS\]/ {
+  section = "cublas";
+  next;
+}
 
-  if (line ~ /^\[CUBLAS\]/) {
-    section = "cublas";
-    next;
-  }
-
-  if (line ~ /^\[MPI\]/) {
-    # Contoh: [MPI] N=256, np=8
-    section = "";
-    mpi_np = 0;
-    if (match(line, /\[MPI\][[:space:]]*N=([0-9]+),[[:space:]]*np=([0-9]+)/, mmpi)) {
-      currN = mmpi[1] + 0;
-      mpi_np = mmpi[2] + 0;
-      if (mpi_np == 8) {
-        section = "mpi8";
+/^\[MPI\]/ {
+  section = "";
+  mpi_np = 0;
+  # Parse: [MPI] N=256, np=8
+  if ($0 ~ /np=[0-9]+/) {
+    for (i = 1; i <= NF; i++) {
+      if ($i ~ /^np=/) {
+        split($i, a, "=");
+        mpi_np = a[2] + 0;
+        if (mpi_np == 8) {
+          section = "mpi8";
+        }
+        break;
       }
     }
-    next;
   }
+  next;
+}
 
-  # Ambil waktu CPU sekuensial
-  if (section == "seq") {
-    if (match(line, /CPU compute time:[[:space:]]*([0-9.]+)[[:space:]]*ms/, mt)) {
-      t = mt[1] + 0.0;
-      seq[currN] = t;
+section == "seq" && /CPU compute time:/ {
+  for (i = 1; i <= NF; i++) {
+    if ($i ~ /^[0-9]+\.?[0-9]*$/) {
+      seq[currN] = $i + 0.0;
       if (!(currN in seen)) {
         seen[currN] = 1;
         Ns[++nN] = currN;
       }
+      break;
     }
-    next;
   }
+  next;
+}
 
-  # Ambil waktu CUDA & cuBLAS (in milliseconds)
-  if (section == "nopt" || section == "shared" || section == "cublas" || section == "mpi8") {
-    if (match(line, /Total Execution Time[[:space:]]*=[[:space:]]*([0-9.]+)[[:space:]]*ms/, mt2)) {
-      t = mt2[1] + 0.0;
+(section == "nopt" || section == "shared" || section == "cublas" || section == "mpi8") && /Total Execution Time/ {
+  for (i = 1; i <= NF; i++) {
+    if ($i ~ /^[0-9]+\.?[0-9]*$/) {
+      t = $i + 0.0;
       if (section == "nopt") {
         if (!(currN in nopt) || t < nopt[currN]) {
           nopt[currN] = t;
@@ -102,10 +105,16 @@ BEGIN {
       } else if (section == "mpi8") {
         mpi8[currN] = t;
       }
+      break;
     }
-    # Also capture computation and communication time
-    if (match(line, /Computation Time[[:space:]]*=[[:space:]]*([0-9.]+)[[:space:]]*ms/, mt3)) {
-      tcomp = mt3[1] + 0.0;
+  }
+  next;
+}
+
+(section == "nopt" || section == "shared" || section == "cublas" || section == "mpi8") && /Computation Time/ {
+  for (i = 1; i <= NF; i++) {
+    if ($i ~ /^[0-9]+\.?[0-9]*$/) {
+      tcomp = $i + 0.0;
       if (section == "nopt") {
         nopt_comp[currN] = tcomp;
       } else if (section == "shared") {
@@ -115,9 +124,16 @@ BEGIN {
       } else if (section == "mpi8") {
         mpi8_comp[currN] = tcomp;
       }
+      break;
     }
-    if (match(line, /Communication Time[[:space:]]*=[[:space:]]*([0-9.]+)[[:space:]]*ms/, mt4)) {
-      tcomm = mt4[1] + 0.0;
+  }
+  next;
+}
+
+(section == "nopt" || section == "shared" || section == "cublas" || section == "mpi8") && /Communication Time/ {
+  for (i = 1; i <= NF; i++) {
+    if ($i ~ /^[0-9]+\.?[0-9]*$/) {
+      tcomm = $i + 0.0;
       if (section == "nopt") {
         nopt_comm[currN] = tcomm;
       } else if (section == "shared") {
@@ -127,9 +143,10 @@ BEGIN {
       } else if (section == "mpi8") {
         mpi8_comm[currN] = tcomm;
       }
+      break;
     }
-    next;
   }
+  next;
 }
 
 END {
@@ -192,6 +209,44 @@ END {
            spd(tseq, tsh),
            spd(tseq, tcublas),
            spd(tseq, tmpi8));
+  }
+
+  print "";
+  # ============================
+  # Tabel Computation Time (ms)
+  # ============================
+  print "## Tabel Computation Time (ms)";
+  print "";
+  print "| N    | CUDA no-shared | CUDA shared | cuBLAS | MPI (np=8) |";
+  print "|------|---------------:|------------:|-------:|-----------:|";
+
+  for (k = 1; k <= nN; k++) {
+    Nval   = Ns[k];
+    printf("| %-4d | %13s | %10s | %7s | %9s |\n",
+           Nval,
+           fmt(nopt_comp[Nval]),
+           fmt(shared_comp[Nval]),
+           fmt(cublas_comp[Nval]),
+           fmt(mpi8_comp[Nval]));
+  }
+
+  print "";
+  # ============================
+  # Tabel Communication Time (ms)
+  # ============================
+  print "## Tabel Communication Time (ms)";
+  print "";
+  print "| N    | CUDA no-shared | CUDA shared | cuBLAS | MPI (np=8) |";
+  print "|------|---------------:|------------:|-------:|-----------:|";
+
+  for (k = 1; k <= nN; k++) {
+    Nval   = Ns[k];
+    printf("| %-4d | %13s | %10s | %7s | %9s |\n",
+           Nval,
+           fmt(nopt_comm[Nval]),
+           fmt(shared_comm[Nval]),
+           fmt(cublas_comm[Nval]),
+           fmt(mpi8_comm[Nval]));
   }
 }
 ' "$LOG_FILE"
