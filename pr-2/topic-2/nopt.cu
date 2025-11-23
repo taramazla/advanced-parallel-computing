@@ -133,7 +133,7 @@ int main(int argc, char **argv) {
     double commMs = totalMs - computeMs;
 
     // Print results
-    printf("Nama: Tara Mazaya Lababanh\nNPM: 2406514564\n");
+    printf("Nama: Tara Mazaya Lababan\nNPM: 2406514564\n");
     printf("Matrix Size (N) = %d\n", N);
     printf("\tTotal Execution Time = %.3f ms\n", totalMs);
     printf("\tComputation Time = %.3f ms\n", computeMs);
