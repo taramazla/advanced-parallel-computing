@@ -99,6 +99,9 @@ int main(int argc, char **argv) {
         }
     }
 
+    MPI_Barrier(MPI_COMM_WORLD);
+    double t_total_start = MPI_Wtime();
+
     // 🟩 Broadcast B ke semua rank
     MPI_Bcast(B, N*N, MPI_DOUBLE, 0, MPI_COMM_WORLD);
 
@@ -110,7 +113,7 @@ int main(int argc, char **argv) {
     );
 
     MPI_Barrier(MPI_COMM_WORLD);
-    double t0 = MPI_Wtime();
+    double t_comp_start = MPI_Wtime();
 
     // 🟩 Hitung C lokal = A_local × B
     for (int i = 0; i < my_rows; i++) {
@@ -123,7 +126,7 @@ int main(int argc, char **argv) {
         }
     }
 
-    double t1 = MPI_Wtime();
+    double t_comp_end = MPI_Wtime();
 
     // 🟩 Gabungkan hasil dari semua proses
     MPI_Gatherv(
@@ -132,11 +135,22 @@ int main(int argc, char **argv) {
         0, MPI_COMM_WORLD
     );
 
-    if (rank == 0) {
-        printf("MPI Matrix Multiplication N=%d size=%d\n", N, size);
-        printf("Compute time: %.6f s\n", t1 - t0);
+    MPI_Barrier(MPI_COMM_WORLD);
+    double t_total_end = MPI_Wtime();
 
-        printf("\nC (first 10x10):\n");
+    if (rank == 0) {
+        double totalTime = (t_total_end - t_total_start) * 1000.0;  // Convert to ms
+        double computeTime = (t_comp_end - t_comp_start) * 1000.0;
+        double commTime = totalTime - computeTime;
+
+        // Print results
+        printf("Nama: Tara Mazaya Lababanh\nNPM: 2406514564\n");
+        printf("Matrix Size (N) = %d\n", N);
+        printf("\tTotal Execution Time = %.3f ms\n", totalTime);
+        printf("\tComputation Time = %.3f ms\n", computeTime);
+        printf("\tCommunication Time = %.3f ms\n", commTime);
+
+        printf("\nResult matrix (first 10x10):\n");
         printMatrix(C, N);
 
         // Verifikasi

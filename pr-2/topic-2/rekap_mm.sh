@@ -103,6 +103,31 @@ BEGIN {
         mpi8[currN] = t;
       }
     }
+    # Also capture computation and communication time
+    if (match(line, /Computation Time[[:space:]]*=[[:space:]]*([0-9.]+)[[:space:]]*ms/, mt3)) {
+      tcomp = mt3[1] + 0.0;
+      if (section == "nopt") {
+        nopt_comp[currN] = tcomp;
+      } else if (section == "shared") {
+        shared_comp[currN] = tcomp;
+      } else if (section == "cublas") {
+        cublas_comp[currN] = tcomp;
+      } else if (section == "mpi8") {
+        mpi8_comp[currN] = tcomp;
+      }
+    }
+    if (match(line, /Communication Time[[:space:]]*=[[:space:]]*([0-9.]+)[[:space:]]*ms/, mt4)) {
+      tcomm = mt4[1] + 0.0;
+      if (section == "nopt") {
+        nopt_comm[currN] = tcomm;
+      } else if (section == "shared") {
+        shared_comm[currN] = tcomm;
+      } else if (section == "cublas") {
+        cublas_comm[currN] = tcomm;
+      } else if (section == "mpi8") {
+        mpi8_comm[currN] = tcomm;
+      }
+    }
     next;
   }
 }
