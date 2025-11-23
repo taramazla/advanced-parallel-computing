@@ -144,7 +144,7 @@ int main(int argc, char **argv) {
         double commTime = totalTime - computeTime;
 
         // Print results
-        printf("Nama: Tara Mazaya Lababanh\nNPM: 2406514564\n");
+        printf("Nama: Tara Mazaya Lababan\nNPM: 2406514564\n");
         printf("Matrix Size (N) = %d\n", N);
         printf("\tTotal Execution Time = %.3f ms\n", totalTime);
         printf("\tComputation Time = %.3f ms\n", computeTime);
