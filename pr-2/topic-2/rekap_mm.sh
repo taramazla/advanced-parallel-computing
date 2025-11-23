@@ -85,10 +85,10 @@ BEGIN {
     next;
   }
 
-  # Ambil waktu CUDA & cuBLAS
+  # Ambil waktu CUDA & cuBLAS (in seconds now)
   if (section == "nopt" || section == "shared" || section == "cublas" || section == "mpi8") {
-    if (match(line, /Total time[^:]*:[[:space:]]*([0-9.]+)[[:space:]]*ms/, mt2)) {
-      t = mt2[1] + 0.0;
+    if (match(line, /Total Execution Time[[:space:]]*=[[:space:]]*([0-9.]+)[[:space:]]*seconds/, mt2)) {
+      t = mt2[1] * 1000.0;  # Convert seconds to ms for consistency
       if (section == "nopt") {
         if (!(currN in nopt) || t < nopt[currN]) {
           nopt[currN] = t;
