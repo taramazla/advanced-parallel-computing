@@ -129,18 +129,15 @@ int main(int argc, char **argv) {
     cudaMemcpy(h_C, d_C, bytes, cudaMemcpyDeviceToHost);
 
     gettimeofday(&totalStop, NULL);
-
-    // Calculate total and communication time
-    double totalTime = (totalStop.tv_sec + totalStop.tv_usec*1e-6) -
-                      (totalStart.tv_sec + totalStart.tv_usec*1e-6);
-    double commTime = totalTime - computeMs/1000.0;  // Convert ms to s
+    double totalMs = getElapsedMs(totalStart, totalStop);
+    double commMs = totalMs - computeMs;
 
     // Print results
     printf("Nama: Tara Mazaya Lababanh\nNPM: 2406514564\n");
     printf("Matrix Size (N) = %d\n", N);
-    printf("\tTotal Execution Time = %.6f seconds\n", totalTime);
-    printf("\tComputation Time = %.6f seconds\n", computeMs/1000.0);
-    printf("\tCommunication Time = %.6f seconds\n", commTime);
+    printf("\tTotal Execution Time = %.3f ms\n", totalMs);
+    printf("\tComputation Time = %.3f ms\n", computeMs);
+    printf("\tCommunication Time = %.3f ms\n", commMs);
 
     printf("\nResult matrix (first 10x10):\n");
     printMatrix(h_C, N, 10);
