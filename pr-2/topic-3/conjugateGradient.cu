@@ -19,7 +19,7 @@
 // =====================
 
 // vecVec
-#define BLOCK_DIM_VEC 1024
+#define BLOCK_DIM_VEC 32
 
 // matVec
 #define NB_ELEM_MAT 32
@@ -111,9 +111,10 @@ __global__ void matVec2(float *A, float *b, float *out, int N) {
     if (idy < N) {
         for (int i = 0; i < effective_block_width; i++) {
             // A is symmetric: A(row, col) = A(col, row)
+            // Use transposed indexing for coalesced memory access
             int row = blockIdx.x * NB_ELEM_MAT + i;
             int col = idy;
-            tmp_scal += b_shared[i] * A[row * N + col];
+            tmp_scal += b_shared[i] * A[col * N + row];
         }
         atomicAdd(out + idy, tmp_scal);
     }
@@ -253,7 +254,9 @@ void solveCG_cuda(float *A, float *b, float *x, float *p, float *r, float *temp,
     while ((k < maxIter) && (*h_r_norm > eps)) {
         // temp = A * p
         cudaMemset(temp, 0, N * sizeof(float));
+        cudaDeviceSynchronize();
         matVec2<<<mat_grid_dim, mat_block_dim>>>(A, p, temp, N);
+        cudaDeviceSynchronize();
 
         // alpha = r_norm_old / (p^T temp)
         vecVec2<<<vec_grid_dim, vec_block_dim>>>(p, temp, temp_scal, N);
@@ -499,7 +502,7 @@ float *generateA(int N) {
     float temp;
     for (i = 0; i < N; i++) {
         for (j = 0; j <= i; j++) {
-            temp = (float)rand();
+            temp = (float)rand() / RAND_MAX;
             if (i == j) {
                 A(i, j, N) = temp + N;   // make it diagonally dominant
             } else {
@@ -527,7 +530,7 @@ float *generateb(int N) {
     int i;
     float *b = (float *)malloc(sizeof(float) * N);
     for (i = 0; i < N; i++) {
-        b[i] = (float)rand();
+        b[i] = (float)rand() / RAND_MAX;
     }
     return b;
 }
