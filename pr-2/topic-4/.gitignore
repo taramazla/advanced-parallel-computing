@@ -1,0 +1,59 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg-info/
+*.egg
+*.log
+
+# VSCode
+.vscode/
+.history/
+
+# Virtual environment
+venv/
+env/
+ENV/
+.venv/
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# Dataset & hasil eksperimen
+cpu_gpu_comparison/
+lora_outputs/
+*.csv
+*.tsv
+*.jsonl
+
+# Model checkpoints
+*.ckpt
+*.pt
+*.bin
+*.h5
+*.onnx
+
+# Cache HuggingFace/datasets
+.cache/
+datasets/
+huggingface/
+hf_cache/
+*.lock
+
+# File sementara
+*.tmp
+*.bak
+*.swp
+.DS_Store
+
+# Credential & secrets
+*.env
+.env.*
+token.json
+credentials.json
+
+# Pods & Kubernetes (jika ada file hasil generate)
+*.yaml~
+*.yml~

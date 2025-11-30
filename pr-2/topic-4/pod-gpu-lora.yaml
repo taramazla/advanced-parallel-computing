@@ -1,0 +1,45 @@
+kind: Pod
+apiVersion: v1
+metadata:
+  name: user02-gpu-03-lora-finetuning
+spec:
+  # Add the server as an NFS volume for the pod
+  volumes:
+    - name: nfs-volume
+      nfs:
+        # URL for the NFS server
+        server: 152.118.31.24
+        path: /mnt/sharedfolder/user02
+
+  # Container for LoRA fine-tuning
+  containers:
+    - name: lora-training
+      image: pytorch/pytorch:1.12.1-cuda11.3-cudnn8-runtime
+
+      # Mount the NFS volume in the container
+      volumeMounts:
+        - name: nfs-volume
+          mountPath: /workspace
+
+      # Set working directory
+      workingDir: /workspace/topik-4
+
+      # Idle container, ready for manual exec
+      command: ["sleep"]
+      args: ["infinity"]
+
+      # Resource requests and limits
+      # resources:
+      #   limits:
+      #     nvidia.com/gpu: 1
+      #   requests:
+      #     nvidia.com/gpu: 1
+
+  # Select GPU node (change gpu-02 or gpu-03 as needed)
+  nodeSelector:
+    gputype: gpu-02
+  
+  # Restart policy
+  restartPolicy: Never
+  
+  imagePullSecrets:
