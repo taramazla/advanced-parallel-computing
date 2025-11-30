@@ -3,7 +3,7 @@
 # Rekap hasil eksperimen matmul dari log run_mm_experiments.sh
 # Output: tabel waktu eksekusi per N dengan semua variant (format tabel)
 
-LOG_FILE="${1:-hasil_eksperimen_matmul.txt}"
+LOG_FILE="${1:-hasil_eksperimen_matmul-gpu03.txt}"
 
 if [ ! -f "$LOG_FILE" ]; then
   echo "Usage: $0 hasil_eksperimen_matmul.txt"

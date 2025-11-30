@@ -1,0 +1,31 @@
+kind: Pod
+apiVersion: v1
+metadata:
+  name: user02-gpu-02-cuda-azzam
+spec:
+  # Add the server as an NFS volume for the pod
+  volumes:
+    - name: nfs-volume
+      nfs:
+        # URL for the NFS server
+        server: 152.118.31.24 # Change this!
+        path: /mnt/sharedfolder/user02
+
+  # In this container, we'll mount the NFS volume
+  # and write the date to a file inside it.
+  containers:
+    - name: app
+      image: nvcr.io/nvidia/tensorflow:20.08-tf2-py3
+
+      # Mount the NFS volume in the container
+      volumeMounts:
+        - name: nfs-volume
+          mountPath: /var/nfs
+
+      # Write to a file inside our NFS
+      command: ["/bin/sh"]
+      args: ["-c", "while true; do date >> /var/nfs/date2113.txt; sleep 5; done"]
+  nodeSelector:
+      gputype: gpu-02
+  imagePullSecrets:
+      - name: nvcr.dgxkey

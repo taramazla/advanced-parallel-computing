@@ -14,7 +14,9 @@ set -e  # stop kalau ada error
 #############################
 
 # Ukuran matriks yang diuji
-N_VALUES=(256 512 1024 2048)
+N_VALUES=(256 512 1024 2048 4096 8192 16384 32768)
+
+N_VALUES_SEQ_MAX=2048  # Maks N untuk seq (CPU) agar tidak terlalu lama
 
 # Block size 1D untuk CUDA no-shared (nopt)
 BLOCK_SIZES=(8 16 32)
@@ -87,9 +89,14 @@ for N in "${N_VALUES[@]}"; do
   ##########################
   # 1. SEQUENTIAL (CPU)   #
   ##########################
-  echo "[SEQ] CPU sequential, N=${N}" | tee -a "${LOG_FILE}"
-  ./seq "${N}" | tee -a "${LOG_FILE}"
-  echo | tee -a "${LOG_FILE}"
+  if [ ${N} -le ${N_VALUES_SEQ_MAX} ]; then
+    echo "[SEQ] CPU sequential, N=${N}" | tee -a "${LOG_FILE}"
+    ./seq "${N}" | tee -a "${LOG_FILE}"
+    echo | tee -a "${LOG_FILE}"
+  else
+    echo "[SEQ] CPU sequential, N=${N} - SKIPPED (N > ${N_VALUES_SEQ_MAX})" | tee -a "${LOG_FILE}"
+    echo | tee -a "${LOG_FILE}"
+  fi
 
   ########################################
   # 2. CUDA TANPA SHARED MEMORY (NOPt)  #
@@ -123,17 +130,22 @@ for N in "${N_VALUES[@]}"; do
   # 5. MPI (CPU CLUSTER)   #
   ##########################
   if [ -x "./mpi_mm" ] && command -v mpirun >/dev/null 2>&1; then
-    for P in "${MPI_PROCS[@]}"; do
-      echo "[MPI] N=${N}, np=${P}" | tee -a "${LOG_FILE}"
+    if [ ${N} -le ${N_VALUES_SEQ_MAX} ]; then
+      for P in "${MPI_PROCS[@]}"; do
+        echo "[MPI] N=${N}, np=${P}" | tee -a "${LOG_FILE}"
 
-      if [ "${ALLOW_RUN_AS_ROOT}" = "yes" ]; then
-        mpirun --allow-run-as-root -np "${P}" ./mpi_mm "${N}" | tee -a "${LOG_FILE}"
-      else
-        mpirun -np "${P}" ./mpi_mm "${N}" | tee -a "${LOG_FILE}"
-      fi
+        if [ "${ALLOW_RUN_AS_ROOT}" = "yes" ]; then
+          mpirun --allow-run-as-root -np "${P}" ./mpi_mm "${N}" | tee -a "${LOG_FILE}"
+        else
+          mpirun -np "${P}" ./mpi_mm "${N}" | tee -a "${LOG_FILE}"
+        fi
 
+        echo | tee -a "${LOG_FILE}"
+      done
+    else
+      echo "[MPI] N=${N} - SKIPPED (N > ${N_VALUES_SEQ_MAX})" | tee -a "${LOG_FILE}"
       echo | tee -a "${LOG_FILE}"
-    done
+    fi
   else
     echo "[MPI] Dilewati (mpi_mm atau mpirun tidak tersedia)" | tee -a "${LOG_FILE}"
   fi
