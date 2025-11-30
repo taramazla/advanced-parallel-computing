@@ -26,3 +26,7 @@ Matrix-Matrix multiplication dengan menggunakan Cannon's algorithm (2D block dis
 
 user05@store-01:~/coba3$ mpicc deadlock.c -o deadlock.o
 user05@store-01:~/coba3$ mpirun -np 4 ./deadlock.o
+
+kubectl apply -f pod-name.yaml
+kubectl get pods
+kubectl delete pods <pod-name>
