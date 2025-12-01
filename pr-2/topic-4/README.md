@@ -30,6 +30,10 @@ apt-get install -y python3-pip
 python3 -m venv venv
 source venv/bin/activate  # On Windows use `venv\Scripts\activate`
 pip install -r requirements.txt
+
+tmux new -s nama_sesi
+tmux ls
+tmux attach -t nama_sesi
 ```
 
 Untuk QLoRA (4-bit quantization), pastikan CUDA tersedia:

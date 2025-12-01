@@ -14,7 +14,7 @@ spec:
   # Container for LoRA fine-tuning
   containers:
     - name: lora-training
-      image: pytorch/pytorch:1.12.1-cuda11.3-cudnn8-runtime
+      image: pytorch/pytorch:2.0.1-cuda11.7-cudnn8-runtime
 
       # Mount the NFS volume in the container
       volumeMounts:
