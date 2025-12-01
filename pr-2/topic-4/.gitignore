@@ -24,7 +24,6 @@ ENV/
 # Dataset & hasil eksperimen
 cpu_gpu_comparison/
 lora_outputs/
-*.csv
 *.tsv
 *.jsonl
 
