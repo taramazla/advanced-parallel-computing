@@ -6,6 +6,8 @@ set -e
 
 # Create output directory
 RESULTS_DIR="./cpu_gpu_comparison"
+# Allow overriding Python interpreter via env; default to WSL venv if present
+PYTHON="${PYTHON:-$HOME/lora-venv/bin/python}"
 mkdir -p "$RESULTS_DIR"
 
 # Timestamp
@@ -42,7 +44,7 @@ run_experiment() {
     local batch_size=$3
     local grad_accum=$4
     local use_quantization=$5
-    
+
     echo "----------------------------------------" | tee -a "$COMPARISON_LOG"
     echo "Experiment: $exp_name" | tee -a "$COMPARISON_LOG"
     echo "Device: $device" | tee -a "$COMPARISON_LOG"
@@ -50,11 +52,11 @@ run_experiment() {
     echo "Gradient accumulation: $grad_accum" | tee -a "$COMPARISON_LOG"
     echo "Quantization: $use_quantization" | tee -a "$COMPARISON_LOG"
     echo "----------------------------------------" | tee -a "$COMPARISON_LOG"
-    
+
     output_dir="$RESULTS_DIR/$exp_name"
-    
+
     # Build command
-    cmd="python lora_finetuning.py \
+    cmd="$PYTHON lora_finetuning.py \
         --model_name $MODEL_NAME \
         --dataset_name $DATASET_NAME \
         --output_dir $output_dir \
@@ -67,29 +69,29 @@ run_experiment() {
         --learning_rate 2e-4 \
         --save_steps 1000 \
         --logging_steps 100"
-    
+
     # Add quantization flag if requested
     if [ "$use_quantization" == "4bit" ]; then
         cmd="$cmd --use_4bit"
     elif [ "$use_quantization" == "8bit" ]; then
         cmd="$cmd --use_8bit"
     fi
-    
+
     # Run experiment
     echo "Starting training..." | tee -a "$COMPARISON_LOG"
     start_time=$(date +%s)
-    
+
     if eval $cmd >> "$COMPARISON_LOG" 2>&1; then
         end_time=$(date +%s)
         duration=$((end_time - start_time))
         echo "✓ Experiment $exp_name completed in ${duration}s" | tee -a "$COMPARISON_LOG"
-        
+
         # Save duration to file
         echo "$exp_name,$device,$batch_size,$grad_accum,$use_quantization,$duration" >> "$RESULTS_DIR/timing_results.csv"
     else
         echo "✗ Experiment $exp_name failed" | tee -a "$COMPARISON_LOG"
     fi
-    
+
     echo "" | tee -a "$COMPARISON_LOG"
 }
 
@@ -121,22 +123,22 @@ if python -c "import torch; exit(0 if torch.cuda.is_available() else 1)" 2>/dev/
     echo "GPU EXPERIMENTS" | tee -a "$COMPARISON_LOG"
     echo "========================================" | tee -a "$COMPARISON_LOG"
     echo "" | tee -a "$COMPARISON_LOG"
-    
+
     # GPU Experiment 1: Small batch (comparable to CPU)
     run_experiment "gpu_bs2_ga4" "GPU" 2 4 "none"
-    
+
     # GPU Experiment 2: Medium batch
     run_experiment "gpu_bs4_ga2" "GPU" 4 2 "none"
-    
+
     # GPU Experiment 3: Larger batch
     run_experiment "gpu_bs8_ga1" "GPU" 8 1 "none"
-    
+
     # GPU Experiment 4: With 8-bit quantization
     run_experiment "gpu_bs4_ga2_8bit" "GPU" 4 2 "8bit"
-    
+
     # GPU Experiment 5: With 4-bit quantization (QLoRA)
     run_experiment "gpu_bs4_ga2_4bit" "GPU" 4 2 "4bit"
-    
+
 else
     echo "GPU not available. Skipping GPU experiments." | tee -a "$COMPARISON_LOG"
 fi
