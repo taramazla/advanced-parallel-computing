@@ -43,20 +43,64 @@ Hanya matriks B dan A yang di-train, W₀ (pretrained) tetap beku.
 - 1 epoch, batch size & grad_accum bervariasi
 
 
-### Hasil Training Lengkap (Detik)
 
-#### Tabel Hasil Training (CPU 8-core, CPU 32-core, 1080 Ti, 3070, 3080)
+### Statistik Ringkas & Hasil Training Lengkap
 
-| Experiment                | Device | Batch Size | Grad Accum | 8-core CPU | 32-core CPU | 1080 Ti | 3070 | 3080 | Efektif Batch |
-|---------------------------|--------|------------|------------|------------|-------------|---------|------|------|---------------|
-| cpu_bs1_ga8               | CPU    | 1          | 8          | 1857       | 1180        |         |      |      | 8             |
-| cpu_bs2_ga4               | CPU    | 2          | 4          | 968        | 637         |         |      |      | 8             |
-| cpu_bs4_ga2               | CPU    | 4          | 2          | 572        | 373         |         |      |      | 8             |
-| gpu_bs2_ga4               | GPU    | 2          | 4          |            |             | 634     | 973  | 638  | 8             |
-| gpu_bs4_ga2               | GPU    | 4          | 2          |            |             | 538     | 550  | 374  | 8             |
-| gpu_bs8_ga1               | GPU    | 8          | 1          |            |             | 499     | 401  | 312  | 8             |
+#### Statistik Rata-rata (Semua Device)
 
-*Catatan: Data 3070 hanya tersedia untuk batch 2, 4, dan 8 pada konfigurasi GPU.
+- **CPU 8-core**: Rata-rata durasi ≈ 1132 detik (18m 52s), tercepat 572s, terlambat 1857s
+- **CPU 32-core**: Rata-rata durasi ≈ 730 detik (12m 10s), tercepat 373s, terlambat 1180s
+- **1080 Ti**: Rata-rata durasi ≈ 644 detik (10m 44s), tercepat 499s, terlambat 907s
+- **3070**: Rata-rata durasi ≈ 807 detik (13m 27s), tercepat 401s, terlambat 1305s
+- **3080**: Rata-rata durasi ≈ 633 detik (10m 33s), tercepat 312s, terlambat 1170s
+
+#### Tabel Hasil Training (Sesuai result_combine.csv, tanpa kolom quantization)
+
+| experiment              | device | batch_size | grad_accum | duration_seconds |
+|-------------------------|--------|------------|------------|------------------|
+| cpu_bs1_ga8_8core       | CPU    | 1          | 8          | 1857             |
+| cpu_bs2_ga4_8core       | CPU    | 2          | 4          | 968              |
+| cpu_bs4_ga2_8core       | CPU    | 4          | 2          | 572              |
+| cpu_bs1_ga8_32core      | CPU    | 1          | 8          | 1180             |
+| cpu_bs2_ga4_32core      | CPU    | 2          | 4          | 637              |
+| cpu_bs4_ga2_32core      | CPU    | 4          | 2          | 373              |
+| gpu_bs1_ga8_1080Ti      | GPU    | 1          | 8          | 907              |
+| gpu_bs2_ga4_1080Ti      | GPU    | 2          | 4          | 634              |
+| gpu_bs4_ga2_1080Ti      | GPU    | 4          | 2          | 538              |
+| gpu_bs8_ga1_1080Ti      | GPU    | 8          | 1          | 499              |
+| gpu_bs1_ga8_3070        | GPU    | 1          | 8          | 1305             |
+| gpu_bs2_ga4_3070        | GPU    | 2          | 4          | 973              |
+| gpu_bs4_ga2_3070        | GPU    | 4          | 2          | 550              |
+| gpu_bs8_ga1_3070        | GPU    | 8          | 1          | 401              |
+| gpu_bs1_ga8_3080        | GPU    | 1          | 8          | 1170             |
+| gpu_bs2_ga4_3080        | GPU    | 2          | 4          | 638              |
+| gpu_bs4_ga2_3080        | GPU    | 4          | 2          | 374              |
+| gpu_bs8_ga1_3080        | GPU    | 8          | 1          | 312              |
+
+*Tabel di atas diambil langsung dari file result_combine.csv untuk menjaga konsistensi data dan kemudahan analisis. Kolom quantization dihilangkan karena seluruh eksperimen menggunakan mode 'none'.*
+
+#### Speedup & Analisis
+
+- **GPU 3080** tercepat di semua konfigurasi batch, diikuti 3070 dan 1080 Ti.
+- **Speedup rata-rata GPU 3080 vs CPU 32-core**: ~1.15x (rata-rata 730s vs 633s), namun pada batch besar (8), speedup bisa >1.2x.
+- **Speedup GPU 3080 vs CPU 8-core**: ~1.8x (rata-rata 1132s vs 633s).
+- **Speedup GPU 3080 vs 1080 Ti**: ~1.02x (rata-rata 644s vs 633s), namun pada batch besar (8), 3080 unggul signifikan (312s vs 499s, ~1.6x).
+- **Batch besar** (batch 8, grad_accum 1) sangat menguntungkan GPU modern, gap performa makin lebar.
+- **CPU 32-core** sudah cukup cepat untuk eksperimen/testing, namun tetap jauh di bawah GPU modern untuk training skala besar.
+
+#### Rekomendasi Praktis
+- Untuk training LLM efisien, gunakan GPU generasi terbaru (3080/3070) dengan batch size besar.
+- Untuk eksperimen ringan, CPU 32-core sudah memadai.
+- 1080 Ti masih relevan untuk model kecil atau batch kecil, namun untuk produksi dan efisiensi waktu, 3080 sangat direkomendasikan.
+
+#### Temuan Kunci
+1. Batch besar meningkatkan utilisasi GPU dan mempercepat training.
+2. Gradient accumulation memungkinkan simulasi batch besar pada memori terbatas.
+3. CPU training cukup untuk testing, namun tidak efisien untuk produksi.
+4. Speedup GPU vs CPU sangat tergantung batch size dan generasi hardware.
+5. Semua eksperimen di atas tanpa quantization, namun quantization dapat sangat membantu untuk model lebih besar.
+
+---
 
 #### Analisis Performa
 
@@ -71,8 +115,6 @@ Hanya matriks B dan A yang di-train, W₀ (pretrained) tetap beku.
 
 | Device      | Durasi (s) |
 |------------ |------------|
-| CPU 8-core  | -          |
-| CPU 32-core | -          |
 | 1080 Ti     | 499        |
 | 3070        | 401        |
 | 3080        | 312        |

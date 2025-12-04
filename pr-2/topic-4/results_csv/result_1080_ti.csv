@@ -2,7 +2,7 @@ experiment,device,batch_size,grad_accum,quantization,duration_seconds
 cpu_bs1_ga8,CPU,1,8,none,915
 cpu_bs2_ga4,CPU,2,4,none,634
 cpu_bs4_ga2,CPU,4,2,none,537
-gpu_bs2_ga4,GPU,1,8,none,907
+gpu_bs1_ga8,GPU,1,8,none,907
 gpu_bs2_ga4,GPU,2,4,none,634
 gpu_bs4_ga2,GPU,4,2,none,538
 gpu_bs8_ga1,GPU,8,1,none,499
