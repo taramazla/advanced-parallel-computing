@@ -1,15 +1,12 @@
-# Requirements for LoRA Fine-tuning on GPU with PyTorch 2.x
-# For use with pytorch/pytorch:2.0.1-cuda11.7-cudnn8-runtime image
-
-# Core dependencies (torch already in base image)
+# Core HF stack
 transformers>=4.35.0,<4.45.0
-peft>=0.6.0,<0.7.0
+peft>=0.6.0,<0.9.0
 datasets>=2.14.0,<3.0.0
-accelerate==0.29.3
+accelerate>=0.29.3,<0.35.0
 evaluate>=0.4.0,<0.5.0
 
 # Quantization (QLoRA)
-bitsandbytes>=0.41.0,<0.43.0
+bitsandbytes>=0.41.0,<0.45.0
 scipy>=1.11.0,<1.13.0
 
 # Utilities
@@ -21,3 +18,4 @@ numpy>=1.24.0,<2.0.0
 # Evaluation & reporting
 scikit-learn>=1.3.0,<1.5.0
 pandas>=2.0.0,<2.2.0
+

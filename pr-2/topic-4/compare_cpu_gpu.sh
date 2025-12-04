@@ -7,7 +7,7 @@ set -e
 # Create output directory
 RESULTS_DIR="./cpu_gpu_comparison"
 # Allow overriding Python interpreter via env; default to WSL venv if present
-PYTHON="${PYTHON:-$HOME/lora-venv/bin/python}"
+# PYTHON="${PYTHON:-$HOME/lora-venv/bin/python}"
 mkdir -p "$RESULTS_DIR"
 
 # Timestamp
@@ -56,7 +56,7 @@ run_experiment() {
     output_dir="$RESULTS_DIR/$exp_name"
 
     # Build command
-    cmd="$PYTHON lora_finetuning.py \
+    cmd="python lora_finetuning.py \
         --model_name $MODEL_NAME \
         --dataset_name $DATASET_NAME \
         --output_dir $output_dir \
@@ -107,10 +107,10 @@ echo "========================================" | tee -a "$COMPARISON_LOG"
 echo "" | tee -a "$COMPARISON_LOG"
 
 # CPU Experiment 1: Small batch size
-run_experiment "cpu_bs2_ga4" "CPU" 2 4 "none"
+run_experiment "cpu_bs1_ga8" "CPU" 1 8 "none"
 
 # CPU Experiment 2: Very small batch (memory constrained)
-run_experiment "cpu_bs1_ga8" "CPU" 1 8 "none"
+run_experiment "cpu_bs2_ga4" "CPU" 2 4 "none"
 
 # CPU Experiment 3: Larger batch if memory allows
 run_experiment "cpu_bs4_ga2" "CPU" 4 2 "none"
@@ -124,6 +124,8 @@ if python -c "import torch; exit(0 if torch.cuda.is_available() else 1)" 2>/dev/
     echo "========================================" | tee -a "$COMPARISON_LOG"
     echo "" | tee -a "$COMPARISON_LOG"
 
+    run_experiment "gpu_bs2_ga4" "GPU" 1 8 "none"
+    
     # GPU Experiment 1: Small batch (comparable to CPU)
     run_experiment "gpu_bs2_ga4" "GPU" 2 4 "none"
 

@@ -1,7 +1,7 @@
 kind: Pod
 apiVersion: v1
 metadata:
-  name: user02-gpu-03-lora-finetuning
+  name: user02-gpu-03-lora-finetuning-cuda11
 spec:
   # Add the server as an NFS volume for the pod
   volumes:
@@ -37,7 +37,7 @@ spec:
 
   # Select GPU node (change gpu-02 or gpu-03 as needed)
   nodeSelector:
-    gputype: gpu-02
+    gputype: gpu-03
   
   # Restart policy
   restartPolicy: Never

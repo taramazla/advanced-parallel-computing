@@ -33,7 +33,8 @@ Hanya matriks B dan A yang di-train, W₀ (pretrained) tetap beku.
 - Modular, bisa swap adapter untuk task berbeda
 - Inference cepat
 
-## Eksperimen: Perbandingan Training di CPU vs GPU
+
+## Eksperimen: Perbandingan Training di CPU, GPU 1080 Ti, dan GPU 3080
 
 ### Setup
 - Model: GPT-2 (125M)
@@ -41,16 +42,49 @@ Hanya matriks B dan A yang di-train, W₀ (pretrained) tetap beku.
 - LoRA config: r=8, alpha=16, dropout=0.1
 - 1 epoch, batch size & grad_accum bervariasi
 
-### Hasil Training
 
-| Experiment    | Device | Batch Size | Grad Accum | Duration (m:s) | Effective Batch |
-|-------------- |--------|------------|------------|----------------|----------------|
-| cpu_bs2_ga4   | CPU    | 2          | 4          | 16:08          | 8              |
-| cpu_bs1_ga8   | CPU    | 1          | 8          | 30:57          | 8              |
-| cpu_bs4_ga2   | CPU    | 4          | 2          | 9:32           | 8              |
-| gpu_bs2_ga4   | GPU    | 2          | 4          | 16:13          | 8              |
-| gpu_bs4_ga2   | GPU    | 4          | 2          | 9:10           | 8              |
-| gpu_bs8_ga1   | GPU    | 8          | 1          | 6:41           | 8              |
+### Hasil Training Lengkap (Detik)
+
+#### Tabel Hasil Training (CPU 8-core, CPU 32-core, 1080 Ti, 3070, 3080)
+
+| Experiment                | Device | Batch Size | Grad Accum | 8-core CPU | 32-core CPU | 1080 Ti | 3070 | 3080 | Efektif Batch |
+|---------------------------|--------|------------|------------|------------|-------------|---------|------|------|---------------|
+| cpu_bs1_ga8               | CPU    | 1          | 8          | 1857       | 1180        |         |      |      | 8             |
+| cpu_bs2_ga4               | CPU    | 2          | 4          | 968        | 637         |         |      |      | 8             |
+| cpu_bs4_ga2               | CPU    | 4          | 2          | 572        | 373         |         |      |      | 8             |
+| gpu_bs2_ga4               | GPU    | 2          | 4          |            |             | 634     | 973  | 638  | 8             |
+| gpu_bs4_ga2               | GPU    | 4          | 2          |            |             | 538     | 550  | 374  | 8             |
+| gpu_bs8_ga1               | GPU    | 8          | 1          |            |             | 499     | 401  | 312  | 8             |
+
+*Catatan: Data 3070 hanya tersedia untuk batch 2, 4, dan 8 pada konfigurasi GPU.
+
+#### Analisis Performa
+
+- **CPU 32-core** memberikan percepatan signifikan dibanding 8-core, terutama pada batch besar (speedup hingga ~1.6x pada batch 4).
+- **GPU 3080** adalah yang tercepat di semua konfigurasi batch, diikuti oleh 3070 dan 1080 Ti.
+- **GPU 3070** performanya di tengah-tengah antara 1080 Ti dan 3080, namun pada batch besar (8), 3070 lebih cepat dari 1080 Ti.
+- **GPU 1080 Ti** masih layak untuk training LLM kecil, namun untuk batch besar dan efisiensi waktu, 3080 dan 3070 jauh lebih unggul.
+- **Efek batch size**: Semakin besar batch, semakin besar gap performa antar GPU, menandakan hardware modern sangat diuntungkan workload paralel besar.
+- **CPU**: Untuk eksperimen/testing, CPU 32-core sudah cukup cepat, namun tetap jauh di bawah GPU modern untuk training skala besar.
+
+#### Visualisasi Speedup (Batch 8, grad_accum 1)
+
+| Device      | Durasi (s) |
+|------------ |------------|
+| CPU 8-core  | -          |
+| CPU 32-core | -          |
+| 1080 Ti     | 499        |
+| 3070        | 401        |
+| 3080        | 312        |
+
+3080 ~1.6x lebih cepat dari 1080 Ti, dan ~1.3x lebih cepat dari 3070 pada konfigurasi batch terbesar.
+
+#### Insight & Rekomendasi
+- Untuk training LLM efisien, gunakan GPU generasi terbaru (3080/3070) dengan batch size besar.
+- Untuk eksperimen ringan, CPU 32-core sudah memadai.
+- 1080 Ti masih relevan untuk model kecil atau batch kecil, namun untuk produksi dan efisiensi waktu, 3080 sangat direkomendasikan.
+
+---
 
 
 ### Analisis Pengaruh Batch Size & Gradient Accumulation

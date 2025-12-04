@@ -34,6 +34,7 @@ pip install -r requirements.txt
 tmux new -s nama_sesi
 tmux ls
 tmux attach -t nama_sesi
+tmux detach
 ```
 
 Untuk QLoRA (4-bit quantization), pastikan CUDA tersedia:
