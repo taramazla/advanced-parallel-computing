@@ -5,6 +5,16 @@
 #include <cublas_v2.h>
 #include <sys/time.h>
 
+#define CHECK_CUDA(call)                                                          \
+    do {                                                                          \
+        cudaError_t err = (call);                                                 \
+        if (err != cudaSuccess) {                                                 \
+            fprintf(stderr, "CUDA error %s:%d: %s\n",                             \
+                    __FILE__, __LINE__, cudaGetErrorString(err));                 \
+            exit(EXIT_FAILURE);                                                   \
+        }                                                                         \
+    } while (0)
+
 // Function to get current time in seconds
 double get_time() {
     struct timeval tv;
@@ -45,9 +55,10 @@ void generate_spd_matrix(double *A, double *b, int N) {
 
 // CUDA kernel for matrix-vector multiplication (y = A*x)
 __global__ void matrix_vector_multiply(double *A, double *x, double *y, int N) {
-    int row = blockIdx.x * blockDim.x + threadIdx.x;
+    int tid = blockIdx.x * blockDim.x + threadIdx.x;
+    int stride = blockDim.x * gridDim.x;
 
-    if (row < N) {
+    for (int row = tid; row < N; row += stride) {
         double sum = 0.0;
         for (int j = 0; j < N; j++) {
             sum += A[row * N + j] * x[j];
@@ -58,27 +69,30 @@ __global__ void matrix_vector_multiply(double *A, double *x, double *y, int N) {
 
 // CUDA kernel for vector addition (a = b + alpha*c)
 __global__ void vector_add(double *a, double *b, double *c, double alpha, int N) {
-    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    int tid = blockIdx.x * blockDim.x + threadIdx.x;
+    int stride = blockDim.x * gridDim.x;
 
-    if (idx < N) {
+    for (int idx = tid; idx < N; idx += stride) {
         a[idx] = b[idx] + alpha * c[idx];
     }
 }
 
 // CUDA kernel for vector subtraction (a = b - alpha*c)
 __global__ void vector_subtract(double *a, double *b, double *c, double alpha, int N) {
-    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    int tid = blockIdx.x * blockDim.x + threadIdx.x;
+    int stride = blockDim.x * gridDim.x;
 
-    if (idx < N) {
+    for (int idx = tid; idx < N; idx += stride) {
         a[idx] = b[idx] - alpha * c[idx];
     }
 }
 
 // CUDA kernel for vector scaling (y = alpha*x)
 __global__ void vector_scale(double *y, double *x, double alpha, int N) {
-    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    int tid = blockIdx.x * blockDim.x + threadIdx.x;
+    int stride = blockDim.x * gridDim.x;
 
-    if (idx < N) {
+    for (int idx = tid; idx < N; idx += stride) {
         y[idx] = alpha * x[idx];
     }
 }
@@ -138,16 +152,16 @@ int main(int argc, char *argv[]) {
 
     double *d_A, *d_b, *d_x, *d_r, *d_p, *d_Ap;
 
-    cudaMalloc((void**)&d_A, N * N * sizeof(double));
-    cudaMalloc((void**)&d_b, N * sizeof(double));
-    cudaMalloc((void**)&d_x, N * sizeof(double));
-    cudaMalloc((void**)&d_r, N * sizeof(double));
-    cudaMalloc((void**)&d_p, N * sizeof(double));
-    cudaMalloc((void**)&d_Ap, N * sizeof(double));
+    CHECK_CUDA(cudaMalloc((void**)&d_A, N * N * sizeof(double)));
+    CHECK_CUDA(cudaMalloc((void**)&d_b, N * sizeof(double)));
+    CHECK_CUDA(cudaMalloc((void**)&d_x, N * sizeof(double)));
+    CHECK_CUDA(cudaMalloc((void**)&d_r, N * sizeof(double)));
+    CHECK_CUDA(cudaMalloc((void**)&d_p, N * sizeof(double)));
+    CHECK_CUDA(cudaMalloc((void**)&d_Ap, N * sizeof(double)));
 
-    cudaMemcpy(d_A, A, N * N * sizeof(double), cudaMemcpyHostToDevice);
-    cudaMemcpy(d_b, b, N * sizeof(double), cudaMemcpyHostToDevice);
-    cudaMemcpy(d_x, x, N * sizeof(double), cudaMemcpyHostToDevice);
+    CHECK_CUDA(cudaMemcpy(d_A, A, N * N * sizeof(double), cudaMemcpyHostToDevice));
+    CHECK_CUDA(cudaMemcpy(d_b, b, N * sizeof(double), cudaMemcpyHostToDevice));
+    CHECK_CUDA(cudaMemcpy(d_x, x, N * sizeof(double), cudaMemcpyHostToDevice));
 
     int blockSize = 256;
     int gridSize = (N + blockSize - 1) / blockSize;
@@ -168,8 +182,8 @@ int main(int argc, char *argv[]) {
 
     // Initialize: r0 = b - A*x0 => r0 = b
     comm_start = get_time();
-    cudaMemcpy(d_r, d_b, N * sizeof(double), cudaMemcpyDeviceToDevice);
-    cudaMemcpy(d_p, d_r, N * sizeof(double), cudaMemcpyDeviceToDevice);
+    CHECK_CUDA(cudaMemcpy(d_r, d_b, N * sizeof(double), cudaMemcpyDeviceToDevice));
+    CHECK_CUDA(cudaMemcpy(d_p, d_r, N * sizeof(double), cudaMemcpyDeviceToDevice));
     comm_end = get_time();
     comm_time += comm_end - comm_start;
 
@@ -182,14 +196,22 @@ int main(int argc, char *argv[]) {
     double initial_residual = sqrt(r_dot_r);
     printf("Initial residual: %e\n", initial_residual);
 
+    const double EPS_BREAK = 1e-30;
+
     for (iter = 0; iter < max_iter; iter++) {
         // Ap = A*p
         compute_start = get_time();
         matrix_vector_multiply<<<gridSize, blockSize>>>(d_A, d_p, d_Ap, N);
-        cudaDeviceSynchronize();
+        CHECK_CUDA(cudaGetLastError());
+        CHECK_CUDA(cudaDeviceSynchronize());
 
         // p_dot_Ap = p^T * Ap
         p_dot_Ap = dot_product(d_p, d_Ap, N, handle);
+
+        if (fabs(p_dot_Ap) < EPS_BREAK) {
+            fprintf(stderr, "CG breakdown: p^T A p ~ 0 (pAp=%e) at iter %d\n", p_dot_Ap, iter);
+            break;
+        }
 
         // alpha = r_dot_r / p_dot_Ap
         alpha = r_dot_r / p_dot_Ap;
@@ -199,14 +221,16 @@ int main(int argc, char *argv[]) {
         // x = x + alpha*p
         compute_start = get_time();
         vector_add<<<gridSize, blockSize>>>(d_x, d_x, d_p, alpha, N);
-        cudaDeviceSynchronize();
+        CHECK_CUDA(cudaGetLastError());
+        CHECK_CUDA(cudaDeviceSynchronize());
         compute_end = get_time();
         compute_time += compute_end - compute_start;
 
         // r = r - alpha*Ap
         compute_start = get_time();
         vector_subtract<<<gridSize, blockSize>>>(d_r, d_r, d_Ap, alpha, N);
-        cudaDeviceSynchronize();
+        CHECK_CUDA(cudaGetLastError());
+        CHECK_CUDA(cudaDeviceSynchronize());
         compute_end = get_time();
         compute_time += compute_end - compute_start;
 
@@ -227,7 +251,8 @@ int main(int argc, char *argv[]) {
 
         // p = r + beta*p
         vector_add<<<gridSize, blockSize>>>(d_p, d_r, d_p, beta, N);
-        cudaDeviceSynchronize();
+        CHECK_CUDA(cudaGetLastError());
+        CHECK_CUDA(cudaDeviceSynchronize());
 
         r_dot_r = r_dot_r_new;
         compute_end = get_time();
@@ -239,7 +264,7 @@ int main(int argc, char *argv[]) {
     }
 
     comm_start = get_time();
-    cudaMemcpy(x, d_x, N * sizeof(double), cudaMemcpyDeviceToHost);
+    CHECK_CUDA(cudaMemcpy(x, d_x, N * sizeof(double), cudaMemcpyDeviceToHost));
     comm_end = get_time();
     comm_time += comm_end - comm_start;
 
@@ -256,8 +281,12 @@ int main(int argc, char *argv[]) {
     printf("Compute/Comm ratio: %f\n", compute_time / comm_time);
 
     free(A); free(b); free(x);
-    cudaFree(d_A); cudaFree(d_b); cudaFree(d_x);
-    cudaFree(d_r); cudaFree(d_p); cudaFree(d_Ap);
+    CHECK_CUDA(cudaFree(d_A));
+    CHECK_CUDA(cudaFree(d_b));
+    CHECK_CUDA(cudaFree(d_x));
+    CHECK_CUDA(cudaFree(d_r));
+    CHECK_CUDA(cudaFree(d_p));
+    CHECK_CUDA(cudaFree(d_Ap));
     cublasDestroy(handle);
 
     return 0;

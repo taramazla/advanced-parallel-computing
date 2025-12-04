@@ -5,6 +5,26 @@
 #include <cublas_v2.h>
 #include <sys/time.h>
 
+#define CHECK_CUDA(call)                                                          \
+    do {                                                                          \
+        cudaError_t err = (call);                                                 \
+        if (err != cudaSuccess) {                                                 \
+            fprintf(stderr, "CUDA error %s:%d: %s\n",                             \
+                    __FILE__, __LINE__, cudaGetErrorString(err));                 \
+            exit(EXIT_FAILURE);                                                   \
+        }                                                                         \
+    } while (0)
+
+#define CHECK_CUBLAS(call)                                                        \
+    do {                                                                          \
+        cublasStatus_t status = (call);                                           \
+        if (status != CUBLAS_STATUS_SUCCESS) {                                    \
+            fprintf(stderr, "cuBLAS error %s:%d: %d\n",                           \
+                    __FILE__, __LINE__, status);                                  \
+            exit(EXIT_FAILURE);                                                   \
+        }                                                                         \
+    } while (0)
+
 // Function to get current time in seconds
 double get_time() {
     struct timeval tv;
@@ -118,21 +138,21 @@ int main(int argc, char *argv[]) {
     // Allocate device memory
     double *d_A, *d_b, *d_x, *d_r, *d_p, *d_Ap;
 
-    cudaMalloc((void**)&d_A, N * N * sizeof(double));
-    cudaMalloc((void**)&d_b, N * sizeof(double));
-    cudaMalloc((void**)&d_x, N * sizeof(double));
-    cudaMalloc((void**)&d_r, N * sizeof(double));
-    cudaMalloc((void**)&d_p, N * sizeof(double));
-    cudaMalloc((void**)&d_Ap, N * sizeof(double));
+    CHECK_CUDA(cudaMalloc((void**)&d_A, N * N * sizeof(double)));
+    CHECK_CUDA(cudaMalloc((void**)&d_b, N * sizeof(double)));
+    CHECK_CUDA(cudaMalloc((void**)&d_x, N * sizeof(double)));
+    CHECK_CUDA(cudaMalloc((void**)&d_r, N * sizeof(double)));
+    CHECK_CUDA(cudaMalloc((void**)&d_p, N * sizeof(double)));
+    CHECK_CUDA(cudaMalloc((void**)&d_Ap, N * sizeof(double)));
 
     // Copy data to device
-    cudaMemcpy(d_A, A, N * N * sizeof(double), cudaMemcpyHostToDevice);
-    cudaMemcpy(d_b, b, N * sizeof(double), cudaMemcpyHostToDevice);
-    cudaMemcpy(d_x, x, N * sizeof(double), cudaMemcpyHostToDevice);
+    CHECK_CUDA(cudaMemcpy(d_A, A, N * N * sizeof(double), cudaMemcpyHostToDevice));
+    CHECK_CUDA(cudaMemcpy(d_b, b, N * sizeof(double), cudaMemcpyHostToDevice));
+    CHECK_CUDA(cudaMemcpy(d_x, x, N * sizeof(double), cudaMemcpyHostToDevice));
 
     // Setup cuBLAS
     cublasHandle_t handle;
-    cublasCreate(&handle);
+    CHECK_CUBLAS(cublasCreate(&handle));
 
     // Timing variables
     double start_time, end_time;
@@ -150,20 +170,22 @@ int main(int argc, char *argv[]) {
 
     // Initialize: r0 = b - A*x0, but since x0 = 0, r0 = b
     comm_start = get_time();
-    cudaMemcpy(d_r, d_b, N * sizeof(double), cudaMemcpyDeviceToDevice);
+    CHECK_CUDA(cudaMemcpy(d_r, d_b, N * sizeof(double), cudaMemcpyDeviceToDevice));
     // p0 = r0
-    cudaMemcpy(d_p, d_r, N * sizeof(double), cudaMemcpyDeviceToDevice);
+    CHECK_CUDA(cudaMemcpy(d_p, d_r, N * sizeof(double), cudaMemcpyDeviceToDevice));
     comm_end = get_time();
     comm_time += comm_end - comm_start;
 
     // Initial r_dot_r = r0^T * r0
     compute_start = get_time();
-    cublasDdot(handle, N, d_r, 1, d_r, 1, &r_dot_r);
+    CHECK_CUBLAS(cublasDdot(handle, N, d_r, 1, d_r, 1, &r_dot_r));
     compute_end = get_time();
     compute_time += compute_end - compute_start;
 
     double initial_residual = sqrt(r_dot_r);
     printf("Initial residual: %e\n", initial_residual);
+
+    const double EPS_BREAK = 1e-30;
 
     // Main CG loop
     for (iter = 0; iter < max_iter; iter++) {
@@ -172,7 +194,12 @@ int main(int argc, char *argv[]) {
         matrix_vector_multiply(handle, d_A, d_p, d_Ap, N);
 
         // Compute p_dot_Ap = p^T * Ap
-        cublasDdot(handle, N, d_p, 1, d_Ap, 1, &p_dot_Ap);
+        CHECK_CUBLAS(cublasDdot(handle, N, d_p, 1, d_Ap, 1, &p_dot_Ap));
+
+        if (fabs(p_dot_Ap) < EPS_BREAK) {
+            fprintf(stderr, "CG breakdown: p^T A p ~ 0 (pAp=%e) at iter %d\n", p_dot_Ap, iter);
+            break;
+        }
 
         // Compute alpha = r_dot_r / p_dot_Ap
         alpha = r_dot_r / p_dot_Ap;
@@ -182,23 +209,25 @@ int main(int argc, char *argv[]) {
         // Update x = x + alpha*p
         compute_start = get_time();
         double alpha_pos = alpha;
-        cublasDaxpy(handle, N, &alpha_pos, d_p, 1, d_x, 1);
+        CHECK_CUBLAS(cublasDaxpy(handle, N, &alpha_pos, d_p, 1, d_x, 1));
         compute_end = get_time();
         compute_time += compute_end - compute_start;
 
         // Update r = r - alpha*Ap
         compute_start = get_time();
         double alpha_neg = -alpha;
-        cublasDaxpy(handle, N, &alpha_neg, d_Ap, 1, d_r, 1);
+        CHECK_CUBLAS(cublasDaxpy(handle, N, &alpha_neg, d_Ap, 1, d_r, 1));
         compute_end = get_time();
         compute_time += compute_end - compute_start;
 
         // Check convergence
         compute_start = get_time();
-        cublasDdot(handle, N, d_r, 1, d_r, 1, &r_dot_r_new);
+        CHECK_CUBLAS(cublasDdot(handle, N, d_r, 1, d_r, 1, &r_dot_r_new));
 
         if (sqrt(r_dot_r_new) < tol * initial_residual) {
             printf("Converged after %d iterations\n", iter + 1);
+            ++iter;
+            r_dot_r = r_dot_r_new;
             break;
         }
         compute_end = get_time();
@@ -209,9 +238,9 @@ int main(int argc, char *argv[]) {
         beta = r_dot_r_new / r_dot_r;
 
         // Update p = r + beta*p (first scale p by beta, then add r)
-        cublasDscal(handle, N, &beta, d_p, 1);
+        CHECK_CUBLAS(cublasDscal(handle, N, &beta, d_p, 1));
         double one = 1.0;
-        cublasDaxpy(handle, N, &one, d_r, 1, d_p, 1);
+        CHECK_CUBLAS(cublasDaxpy(handle, N, &one, d_r, 1, d_p, 1));
 
         // Update r_dot_r for next iteration
         r_dot_r = r_dot_r_new;
@@ -226,7 +255,7 @@ int main(int argc, char *argv[]) {
 
     // Copy result back to host
     comm_start = get_time();
-    cudaMemcpy(x, d_x, N * sizeof(double), cudaMemcpyDeviceToHost);
+    CHECK_CUDA(cudaMemcpy(x, d_x, N * sizeof(double), cudaMemcpyDeviceToHost));
     comm_end = get_time();
     comm_time += comm_end - comm_start;
 
@@ -251,14 +280,14 @@ int main(int argc, char *argv[]) {
     free(b);
     free(x);
 
-    cudaFree(d_A);
-    cudaFree(d_b);
-    cudaFree(d_x);
-    cudaFree(d_r);
-    cudaFree(d_p);
-    cudaFree(d_Ap);
+    CHECK_CUDA(cudaFree(d_A));
+    CHECK_CUDA(cudaFree(d_b));
+    CHECK_CUDA(cudaFree(d_x));
+    CHECK_CUDA(cudaFree(d_r));
+    CHECK_CUDA(cudaFree(d_p));
+    CHECK_CUDA(cudaFree(d_Ap));
 
-    cublasDestroy(handle);
+    CHECK_CUBLAS(cublasDestroy(handle));
 
     return 0;
 }
