@@ -16,7 +16,7 @@ echo ""
 ssh -p ${REMOTE_PORT} ${REMOTE_HOST} "mkdir -p ${TEMP_DEST}"
 
 # Copy files using scp
-scp -P ${REMOTE_PORT} *.c *.cu *.py *.sh Makefile README.md ${REMOTE_HOST}:${TEMP_DEST}/
+scp -P ${REMOTE_PORT} *.c *.cu *.sh ${REMOTE_HOST}:${TEMP_DEST}/
 
 echo ""
 echo "Done! Files copied to ${TEMP_DEST}"

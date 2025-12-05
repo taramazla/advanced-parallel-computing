@@ -1,0 +1,48 @@
+================================================================================
+           CONJUGATE GRADIENT PERFORMANCE EXPERIMENT SUMMARY
+================================================================================
+
+Experiment Date: 2025-12-05 21:51:40
+Input File: cg_results.csv
+Total Configurations Tested:       88
+
+--------------------------------------------------------------------------------
+                            KEY FINDINGS
+--------------------------------------------------------------------------------
+
+FASTEST CONFIGURATION:
+CUDA_cuBLAS          | N=1024   | Procs=GPU    | Time=0.000515 sec
+
+BEST SPEEDUP vs CPU:
+CUDA_cuBLAS          | N=4096   | Procs=GPU    | Speedup= 27.91x
+
+--------------------------------------------------------------------------------
+                        AVAILABLE SUMMARY FILES
+--------------------------------------------------------------------------------
+
+1. 0_MASTER_SUMMARY.txt          - This file (overview)
+2. 1_avg_time_summary.txt        - Average execution times
+3. 2_speedup_table.txt           - Speedup comparison table
+4. 3_best_performance.txt        - Top 15 fastest configurations
+5. 4_scalability_analysis.txt   - OpenMP and MPI scalability
+6. 5_platform_comparison.txt    - Platform-by-platform comparison
+7. 6_detailed_statistics.txt    - Min/Max/Avg/StdDev statistics
+
+--------------------------------------------------------------------------------
+                            QUICK STATISTICS
+--------------------------------------------------------------------------------
+
+Configurations tested per platform:
+  - CUDA_cuSPARSE       :   9 runs
+  - CPU_Sequential      :   8 runs
+  - CUDA_Custom         :   9 runs
+  - OpenMP_Multicore    :  27 runs
+  - MPI_Distributed     :  27 runs
+  - CUDA_cuBLAS         :   9 runs
+
+Matrix sizes tested: 1024, 2048, 4096
+Runs per configuration: 3 (averaged)
+
+================================================================================
+                              END OF SUMMARY
+================================================================================

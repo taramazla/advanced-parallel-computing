@@ -1,0 +1,23 @@
+================================================================================
+                        BEST PERFORMANCE RANKING
+================================================================================
+
+Table 3: Top 15 Fastest Configurations
+--------------------------------------------------------------------------------
+Rank  | Implementation       | Size   | Processors | Avg Time (s)
+------+----------------------+--------+------------+-------------
+    1 | CUDA_cuBLAS          |   1024 |        GPU |     0.000515
+    2 | OpenMP_Multicore     |   1024 |          8 |     0.000857
+    3 | CUDA_cuBLAS          |   2048 |        GPU |     0.000919
+    4 | CUDA_Custom          |   1024 |        GPU |     0.001408
+    5 | MPI_Distributed      |   1024 |          8 |     0.001443
+    6 | MPI_Distributed      |   1024 |          4 |     0.001570
+    7 | CUDA_cuBLAS          |   4096 |        GPU |     0.001872
+    8 | OpenMP_Multicore     |   1024 |          4 |     0.001897
+    9 | MPI_Distributed      |   1024 |          2 |     0.001960
+   10 | CUDA_cuSPARSE        |   1024 |        GPU |     0.002367
+   11 | CUDA_Custom          |   2048 |        GPU |     0.002563
+   12 | OpenMP_Multicore     |   2048 |          8 |     0.003096
+   13 | OpenMP_Multicore     |   1024 |          2 |     0.003196
+   14 | CPU_Sequential       |   1024 |          1 |     0.003598
+   15 | CUDA_cuSPARSE        |   2048 |        GPU |     0.004373

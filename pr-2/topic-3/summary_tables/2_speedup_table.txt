@@ -1,0 +1,19 @@
+================================================================================
+                        SPEEDUP vs CPU SEQUENTIAL
+================================================================================
+
+Table 2: Speedup Comparison (Higher is Better)
+--------------------------------------------------------------------------------
+
+Implementation       | N=1024 | N=2048 | N=4096
+---------------------+--------+--------+--------
+CUDA_cuSPARSE        |   1.52x |   3.79x |   4.71x   [GPU]
+CPU_Sequential       |   1.00x |   1.00x |   1.00x   [1]
+CUDA_Custom          |   2.56x |   6.47x |   5.83x   [GPU]
+OpenMP_Multicore     |   1.90x |   2.89x |   2.19x   [4]
+OpenMP_Multicore     |   4.20x |   5.36x |   4.54x   [8]
+OpenMP_Multicore     |   1.13x |   2.03x |   1.84x   [2]
+MPI_Distributed      |   2.49x |   3.12x |   3.51x   [8]
+MPI_Distributed      |   1.84x |   2.30x |   1.84x   [2]
+MPI_Distributed      |   2.29x |   2.74x |   2.14x   [4]
+CUDA_cuBLAS          |   6.99x |  18.05x |  27.91x   [GPU]

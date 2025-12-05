@@ -1,0 +1,38 @@
+================================================================================
+                    AVERAGE EXECUTION TIME SUMMARY
+================================================================================
+
+Table 1: Average Time (seconds) - Lower is Better
+--------------------------------------------------------------------------------
+---------------------+--------+------------+--------------+---------
+Implementation       | Size   | Processors | Avg Time (s) | Speedup 
+CPU_Sequential       | 1024   | 1          |     0.003598 |     1.00x
+CUDA_Custom          | 1024   | GPU        |     0.001408 |     2.56x
+CUDA_cuBLAS          | 1024   | GPU        |     0.000515 |     6.99x
+CUDA_cuSPARSE        | 1024   | GPU        |     0.002367 |     1.52x
+MPI_Distributed      | 1024   | 2          |     0.001960 |     1.84x
+MPI_Distributed      | 1024   | 4          |     0.001570 |     2.29x
+MPI_Distributed      | 1024   | 8          |     0.001443 |     2.49x
+OpenMP_Multicore     | 1024   | 2          |     0.003196 |     1.13x
+OpenMP_Multicore     | 1024   | 4          |     0.001897 |     1.90x
+OpenMP_Multicore     | 1024   | 8          |     0.000857 |     4.20x
+CPU_Sequential       | 2048   | 1          |     0.016585 |     1.00x
+CUDA_Custom          | 2048   | GPU        |     0.002563 |     6.47x
+CUDA_cuBLAS          | 2048   | GPU        |     0.000919 |    18.05x
+CUDA_cuSPARSE        | 2048   | GPU        |     0.004373 |     3.79x
+MPI_Distributed      | 2048   | 2          |     0.007198 |     2.30x
+MPI_Distributed      | 2048   | 4          |     0.006055 |     2.74x
+MPI_Distributed      | 2048   | 8          |     0.005316 |     3.12x
+OpenMP_Multicore     | 2048   | 2          |     0.008152 |     2.03x
+OpenMP_Multicore     | 2048   | 4          |     0.005736 |     2.89x
+OpenMP_Multicore     | 2048   | 8          |     0.003096 |     5.36x
+CPU_Sequential       | 4096   | 1          |     0.052250 |     1.00x
+CUDA_Custom          | 4096   | GPU        |     0.008961 |     5.83x
+CUDA_cuBLAS          | 4096   | GPU        |     0.001872 |    27.91x
+CUDA_cuSPARSE        | 4096   | GPU        |     0.011092 |     4.71x
+MPI_Distributed      | 4096   | 2          |     0.028452 |     1.84x
+MPI_Distributed      | 4096   | 4          |     0.024410 |     2.14x
+MPI_Distributed      | 4096   | 8          |     0.014890 |     3.51x
+OpenMP_Multicore     | 4096   | 2          |     0.028389 |     1.84x
+OpenMP_Multicore     | 4096   | 4          |     0.023870 |     2.19x
+OpenMP_Multicore     | 4096   | 8          |     0.011503 |     4.54x

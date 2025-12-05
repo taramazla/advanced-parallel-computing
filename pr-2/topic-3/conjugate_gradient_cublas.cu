@@ -35,7 +35,7 @@ double get_time() {
 // Function to generate a symmetric positive-definite matrix
 void generate_spd_matrix(double *A, double *b, int N) {
     int i, j;
-    srand(12345);  // Fixed seed for reproducibility
+    srand(42);  // Fixed seed for reproducibility
 
     // First generate a random matrix
     for (i = 0; i < N; i++) {

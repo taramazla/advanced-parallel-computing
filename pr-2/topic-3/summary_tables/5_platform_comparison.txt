@@ -1,0 +1,45 @@
+================================================================================
+                      PLATFORM COMPARISON SUMMARY
+================================================================================
+
+Table 5: Best Time per Platform (seconds)
+--------------------------------------------------------------------------------
+Platform             | Size   | Best Time    | Config    
+---------------------+--------+--------------+-----------
+MPI                  |   4096 |     0.013595 |          8
+MPI                  |   1024 |     0.001266 |          8
+MPI                  |   2048 |     0.003671 |          8
+CUDA_cuSPARSE        |   4096 |     0.011085 |        GPU
+CUDA_cuSPARSE        |   1024 |     0.002323 |        GPU
+CUDA_cuSPARSE        |   2048 |     0.004360 |        GPU
+CPU                  |   4096 |     0.050876 |          1
+CPU                  |   1024 |     0.003587 |          1
+CPU                  |   2048 |     0.012700 |          1
+CUDA_Custom          |   4096 |     0.008952 |        GPU
+CUDA_Custom          |   1024 |     0.001393 |        GPU
+CUDA_Custom          |   2048 |     0.002549 |        GPU
+CUDA_cuBLAS          |   4096 |     0.001844 |        GPU
+CUDA_cuBLAS          |   1024 |     0.000501 |        GPU
+CUDA_cuBLAS          |   2048 |     0.000882 |        GPU
+OpenMP               |   4096 |     0.010904 |          8
+OpenMP               |   1024 |     0.000711 |          8
+OpenMP               |   2048 |     0.002450 |          8
+
+
+Speedup Summary (vs CPU Sequential):
+---------------------+--------+-------------
+MPI                  |   4096 |        3.74x
+MPI                  |   1024 |        2.83x
+MPI                  |   2048 |        3.46x
+CUDA_cuSPARSE        |   4096 |        4.59x
+CUDA_cuSPARSE        |   1024 |        1.54x
+CUDA_cuSPARSE        |   2048 |        2.91x
+CUDA_Custom          |   4096 |        5.68x
+CUDA_Custom          |   1024 |        2.58x
+CUDA_Custom          |   2048 |        4.98x
+CUDA_cuBLAS          |   4096 |       27.59x
+CUDA_cuBLAS          |   1024 |        7.16x
+CUDA_cuBLAS          |   2048 |       14.40x
+OpenMP               |   4096 |        4.67x
+OpenMP               |   1024 |        5.05x
+OpenMP               |   2048 |        5.18x

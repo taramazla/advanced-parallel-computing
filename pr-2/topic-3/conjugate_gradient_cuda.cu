@@ -25,7 +25,7 @@ double get_time() {
 // Function to generate a symmetric positive-definite matrix
 void generate_spd_matrix(double *A, double *b, int N) {
     int i, j;
-    srand(12345);  // Fixed seed for reproducibility
+    srand(42);  // Fixed seed for reproducibility
 
     for (i = 0; i < N; i++) {
         for (j = 0; j < N; j++) {
@@ -240,6 +240,8 @@ int main(int argc, char *argv[]) {
 
         if (sqrt(r_dot_r_new) < tol * initial_residual) {
             printf("Converged after %d iterations\n", iter + 1);
+            ++iter;
+            r_dot_r = r_dot_r_new;
             break;
         }
         compute_end = get_time();
