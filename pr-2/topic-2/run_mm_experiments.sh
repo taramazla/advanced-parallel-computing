@@ -14,7 +14,8 @@ set -e  # stop kalau ada error
 #############################
 
 # Ukuran matriks yang diuji
-N_VALUES=(256 512 1024 2048 4096 8192 16384 32768)
+# N_VALUES=(256 512 1024 2048 4096 8192 16384)
+N_VALUES=(256 512 1024 2048)
 
 N_VALUES_SEQ_MAX=2048  # Maks N untuk seq (CPU) agar tidak terlalu lama
 
@@ -31,7 +32,7 @@ MPI_PROCS=(1 2 4 8)
 # set ini menjadi "yes" agar menambahkan --allow-run-as-root
 ALLOW_RUN_AS_ROOT="yes"
 
-LOG_FILE="hasil_eksperimen_matmul.txt"
+LOG_FILE="hasil_eksperimen_matmul-gpu02.txt"
 
 #############################
 # COMPILATION              #
