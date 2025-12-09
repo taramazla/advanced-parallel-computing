@@ -40,6 +40,8 @@ LOG_FILE="hasil_eksperimen_matmul-gpu02.txt"
 
 echo "=== Kompilasi program ==="
 
+echo "writing to log file: ${LOG_FILE}"
+
 # Sequential CPU
 echo "Compile seq.cu ..."
 nvcc seq.cu -O3 -o seq
@@ -152,6 +154,8 @@ for N in "${N_VALUES[@]}"; do
   fi
 
 done
+
+echo "saved all results to ${LOG_FILE}"
 
 echo
 echo "=== SELESAI ==="
