@@ -4,7 +4,7 @@
 # Input: cg_results.csv
 # Output: Berbagai tabel summary dalam format TXT
 
-INPUT_CSV="cg_results.csv"
+INPUT_CSV="experiment_results/cg_results.csv"
 OUTPUT_DIR="summary_tables"
 mkdir -p "$OUTPUT_DIR"
 

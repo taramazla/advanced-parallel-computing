@@ -38,7 +38,13 @@ topic-3 % ./copy_to_pod.sh
 kubectl cp /tmp/topic-3 user05-gpu-02-cuda-tara:/var/nfs/topic-3
 
 kubectl exec -it user05-gpu-02-cuda-tara -- /bin/bash
+kubectl exec -it user05-gpu-03-cuda-tara -- /bin/bash
 
+cd /var/nfs
+
+kubectl cp /tmp/topic-1 user05-gpu-02-cuda-tara:/var/nfs/testing/topic-1
+kubectl cp /tmp/topic-2 user05-gpu-02-cuda-tara:/var/nfs/testing/topic-2
+kubectl cp /tmp/topic-3 user05-gpu-02-cuda-tara:/var/nfs/testing/topic-3
 
 cd pr-2/topic-3
 

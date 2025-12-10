@@ -15,11 +15,8 @@ fi
 
 # Daftar N yang akan diuji (kecil → besar)
 Ns=(
-  10
-  100
-  1000
-  100000
-  1000000
+  1000000000
+  10000000000
 )
 
 # Daftar blockSize yang akan diuji
